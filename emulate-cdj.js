@@ -38,7 +38,13 @@ sock0.on("message", function (msg, rinfo) {
 	var typeStr = ('0'+type.toString(16)).substr(-2);
 	var deviceName = msg.toString().substr(0x0b, 16).replace(/\x00/g, '');
 	//console.log(rinfo.address + " " + deviceName + ' ' + typeStr);
-	if(type==0x04){
+	if(type==0x01){
+		if(device.on0x01) device.on0x01(msg, rinfo);
+	}else if(type==0x03){
+		if(device.on0x03) device.on0x03(msg, rinfo);
+	}else if(type==0x05){
+		if(device.on0x05) device.on0x05(msg, rinfo);
+	}else if(type==0x04){
 		console.log('50000 Device '+rinfo.address+' is channel '+msg[0x23].toString(16));
 		if(msg[0x23]==0x21){
 			device.mixerIP = rinfo.address;
@@ -97,9 +103,6 @@ sock2.on("message", function (msg, rinfo) {
 });
 
 // 50000 0x0a
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 0a 00 43 44 4a 2d  Qspt1WmJOL..CDJ-
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00  2000nexus.......
-//0020   01 02 00 25 01                                   ...%.
 function send0x0a(){
 	var b = Buffer([
 		0x51,0x73,0x70,0x74,0x31,0x57,0x6d,0x4a,0x4f,0x4c,0x0a,0x00,0x43,0x44,0x4a,0x2d,
@@ -112,9 +115,6 @@ function send0x0a(){
 }
 
 // 50000 0x00
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 00 00 43 44 4a 2d  Qspt1WmJOL..CDJ-
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00  2000nexus.......
-//0020   01 02 00 2c 02 01 [MAC address....]              ...,..t^....
 function send0x00(i){
 	var m = device.macaddr;
 	var b = Buffer([
@@ -129,32 +129,25 @@ function send0x00(i){
 
 
 // 50000 0x02
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 02 00 43 44 4a 2d
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00
-//0020   01 02 00 32 c0 a8 00 5d 74 5e 1c 35 f3 9f 03 xx
-//0030   01 02
-function send0x02(i){
+function send0x02(i, target){
 	var m = device.macaddr;
+	var chan = device.channel;
+	// If byte 0x0b is set to 0x00 instead of 0x01, this packet fails to get any response. Odd.
+	var bcst =  target ? 0x01 : 0x00 ;
+	var target = target || device.broadcastIP;
 	var b = Buffer([
-		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x02, 0x00, 0x43, 0x44, 0x4a, 0x2d,
+		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x02, bcst, 0x43, 0x44, 0x4a, 0x2d,
 		0x32, 0x30, 0x30, 0x30, 0x6e, 0x65, 0x78, 0x75, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x01, 0x02, 0x00, 0x32, 0xc0, 0xa8, 0x00, 0x5d, m[0], m[1], m[2], m[3], m[4], m[5], 0x03, i,
-		0x01, 0x02,
+		0x01, 0x02, 0x00, 0x32, 0xc0, 0xa8, 0x00, 0x5c, m[0], m[1], m[2], m[3], m[4], m[5], chan, i,
+		0x01, 0x01,
 	]);
-	sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
+	sock0.send(b, 0, b.length, 50000, target, function(e){
 		console.log(arguments);
 	});
 }
 
 
 // 50000 0x04
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 04 00 43 44 4a 2d  Qspt1WmJOL..CDJ-
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00  2000nexus.......
-//0020   01 02 00 26 02 01                                ...&..
-
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 04 00 43 44 4a 2d
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00
-//0020   01 02 00 26 03 01
 function send0x04(){
 	var chan = device.channel;
 	var b = Buffer([
@@ -167,19 +160,11 @@ function send0x04(){
 	});
 }
 
-// Starting with this packet, the DJM responds with 50000 0x05:
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 05 00 44 4a 4d 2d  Qspt1WmJOL..DJM-
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00  2000nexus.......
-//0020   01 01 00 26 21 01                                ...&!.
+// Starting with this packet, the DJM responds with 50000 0x05
 // Packet identical to 0x04 except for bytes 0x0b, 0x21, 0x24, and device string
 
 
 // The CDJ goes into regular discovery mode following this:
-//0000   51 73 70 74 31 57 6d 4a 4f 4c 06 00 43 44 4a 2d  Qspt1WmJOL..CDJ-
-//0010   32 30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00  2000nexus.......
-//0020   01 02 00 36 02 01 [mac addr    :ba] c0 a8 00 5c  ...6..t^.......\
-//0030   01 00 00 00 01 00                                ......
-
 function send0x06(){
 	var chan = device.channel;
 	var m = device.macaddr;
@@ -276,6 +261,7 @@ sock1.bind(50001, onBound1);
 sock2.bind(50002, onBound2);
 
 function onBound0(){
+	console.log('bound0');
 	var wait = 400;
 	sock0.setBroadcast(true);
 	// Start-up sequence for powered from a switch:
@@ -283,21 +269,15 @@ function onBound0(){
 	setTimeout(send0x0a, 1*wait);
 	setTimeout(send0x0a, 2*wait);
 	setTimeout(send0x0a, 3*wait);
-	setTimeout(send0x00.bind(null, 1), 4*wait);
-	setTimeout(send0x00.bind(null, 2), 5*wait);
-	setTimeout(send0x00.bind(null, 3), 6*wait);
-	setTimeout(send0x02.bind(null, 1), 7*wait);
-	setTimeout(send0x02.bind(null, 2), 8*wait);
-	setTimeout(send0x02.bind(null, 3), 9*wait);
-	setTimeout(send0x04, 10*wait);
-	setTimeout(function(){
-		setInterval(send0x06, 2000);
-	}, 11*wait);
+	setTimeout(doBootup, 4*wait);
 }
 
-function onBound1(){}
+function onBound1(){
+	console.log('bound1');
+}
 
 function onBound2(){
+	console.log('bound2');
 	setTimeout(function(){
 		setInterval(function(){
 			for(var n in device.devices){
@@ -305,4 +285,55 @@ function onBound2(){
 			}
 		}, parseInt(60000/138));
 	}, 10000);
+}
+
+
+function doBootup(){
+	step0x00();
+	function step0x00(){
+		var seq = 1;
+		var timeout;
+		device.on0x01 = function(msg, rinfo){
+			clearTimeout(timeout);
+			device.channel = 0; // Reset the channel to detect what we're plugged into
+			step0x02();
+		};
+		function sendNext(){
+			send0x00(seq);
+			timeout = setTimeout(sendNext, 1000);
+			seq++;
+		}
+		sendNext();
+	}
+	function step0x02(){
+		var seq = 1;
+		var timeout;
+		device.on0x03 = function(msg, rinfo){
+			clearTimeout(timeout);
+			step0x04();
+		};
+		function sendNext(){
+			send0x02(seq);
+			timeout = setTimeout(sendNext, 1000);
+			seq++;
+		}
+		sendNext();
+	}
+	function step0x04(){
+		var seq = 1;
+		var timeout;
+		device.on0x05 = function(msg, rinfo){
+			clearTimeout(timeout);
+			doDiscoverable();
+		};
+		function sendNext(){
+			send0x04(seq);
+			timeout = setTimeout(sendNext, 1000);
+			seq++;
+		}
+		sendNext();
+	}
+}
+function doDiscoverable(){
+	setInterval(send0x06, 2000);
 }
