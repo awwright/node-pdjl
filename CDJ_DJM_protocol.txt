@@ -55,6 +55,8 @@ Port  Typ  Len  Info
 
 DHCP request
 
+If no DHCP answer, it picks a link-local IP address (based on the MAC address): 169.254.xxx.yyy, where xxx and yyy are the last two octets of the MAC address.
+
 50000 0x0a (79 bytes)
 	Broadcast
 	Three identical broadcasts

@@ -75,8 +75,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	elseif typ==0x01 then
 		-- Seems to be a reply to 0_x00 when device is plugged into a numbered channel port
 		pinfo.cols.info = string.format("You have a direct connection")
-		subtree:add(buffer(0x24, 2), string.format("x24: %04x", buffer(0x24,2):uint()) )
-		subtree:add(buffer(0x26, 2), string.format("x26: %04x", buffer(0x26,2):uint()) )
+		subtree:add(buffer(0x24, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x24,1):uint(), buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint()) )
 		subtree:add(buffer(0x28, 6), string.format("MAC: %02x:%02x:%02x:%02x:%02x:%02x",
 			buffer(0x28, 1):uint(), buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(),
 			buffer(0x2b, 1):uint(), buffer(0x2c, 1):uint(), buffer(0x2d, 1):uint())
@@ -84,8 +83,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0x2e, 1), string.format("In reply to: %02x", buffer(0x2e,1):uint()) )
 	elseif typ==0x02 then
 		pinfo.cols.info = string.format("Type 0x02")
-		subtree:add(buffer(0x24, 2), string.format("x24: %04x (CDJ.2, CDJ.3: a9.fe)", buffer(0x24, 2):uint()))
-		subtree:add(buffer(0x26, 2), string.format("x26: %04x (Last 2 bytes of MAC?)", buffer(0x26, 2):uint()))
+		subtree:add(buffer(0x24, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x24,1):uint(), buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint()) )
 		subtree:add(buffer(0x28, 6), string.format("MAC: %02x:%02x:%02x:%02x:%02x:%02x",
 			buffer(0x28, 1):uint(), buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(),
 			buffer(0x2b, 1):uint(), buffer(0x2c, 1):uint(), buffer(0x2d, 1):uint())
@@ -132,8 +130,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 			buffer(0x26, 1):uint(), buffer(0x27, 1):uint(), buffer(0x28, 1):uint(),
 			buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(), buffer(0x2b, 1):uint())
 		)
-		subtree:add(buffer(0x2c, 2), string.format("x2c: %04x (%s %s)", buffer(0x2c, 2):uint(), bits(buffer(0x2c,1)), bits(buffer(0x2d,1)) ))
-		subtree:add(buffer(0x2e, 2), string.format("x2e: %04x (%s %s)", buffer(0x2e, 2):uint(), bits(buffer(0x2e,1)), bits(buffer(0x2f,1)) ))
+		subtree:add(buffer(0x2c, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x2c,1):uint(), buffer(0x2d,1):uint(), buffer(0x2e,1):uint(), buffer(0x2f,1):uint()) )
 		subtree:add(buffer(0x30, 1), string.format("x30: %02x", buffer(0x30, 1):uint())) -- 01..04, maybe number of devices on network?
 		subtree:add(buffer(0x31, 1), string.format("x31: %02x", buffer(0x31, 1):uint())) -- 01 from Rekordbox, 00 otherwise?
 		subtree:add(buffer(0x32, 2), string.format("x32: %04x", buffer(0x32, 2):uint()))
@@ -143,8 +140,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	elseif typ==0x08 then
 		pinfo.cols.info = string.format("Device changing channel")
 		subtree:add(buffer(0x24, 1), string.format("Old channel: %02x", buffer(0x24, 1):uint()))
-		subtree:add(buffer(0x25, 2), string.format("x25: %04x (CDJ.2, CDJ.3: a9.fe)", buffer(0x25, 2):uint()))
-		subtree:add(buffer(0x27, 2), string.format("x27: %04x (Last two bytes of MAC?)", buffer(0x27, 2):uint())) -- Seems to be last two bytes of MAC address
+		subtree:add(buffer(0x25, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint(), buffer(0x28,1):uint()) )
 
 	elseif typ==0x0a then
 		pinfo.cols.info = string.format("Device online")
