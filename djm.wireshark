@@ -60,7 +60,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x0c, 18), "Device name: "..buffer(0x0c, 18):stringz())
 	subtree:add(buffer(0x1e, 2), string.format("x1e: %04x (always nil, device name?)", buffer(0x1e, 2):uint()) )
 	local channel = buffer(0x20, 2):uint()
-	subtree:add(buffer(0x20, 2), string.format("x20: %04x (0101 from DJM, 0102 from CDJ)", channel))
+	subtree:add(buffer(0x20, 2), string.format("x20: %04x (0101 from DJM, 0102 from CDJ, 0103 from Rekordbox)", channel))
 	subtree:add(buffer(0x22, 2), string.format("Length: %d (%s)", buffer(0x22, 2):uint(), (buffer(0x22, 2):uint()==buffer:len() and 'good' or 'bad') ) )
 
 	if typ==0x00 then
@@ -271,9 +271,22 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
 	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
-	subtree:add(buffer(0x24, 1), string.format("Channel: %02x", channel))
 
-	if typ==0x0a then
+	if typ==0x05 then
+		subtree:add(buffer(0x24, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x24,1):uint(), buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint()) )
+		subtree:add(buffer(0x28, 4), string.format("x28: %08x", buffer(0x28,4):uint() ) ) -- 0x00000011 from cdj
+		subtree:add(buffer(0x2c, 4), string.format("x2c: %08x", buffer(0x2c,4):uint() ) ) -- 0x00000004 from cdj
+	elseif typ==0x06 then
+		subtree:add(buffer(0x24, 4), string.format("x24: %08x", buffer(0x24,4):uint() ) ) -- 0x00000011 from rekordbox
+		subtree:add(buffer(0x28, 4), string.format("x28: %08x", buffer(0x28,4):uint() ) ) -- 0x00000004 from rekordbox
+		subtree:add(buffer(0x2c, 64), string.format("x2c: %s", buffer(0x2c,64):ustringz() ) )
+		subtree:add(buffer(0xa6, 2), string.format("xa6: %04x", buffer(0xa6,2):uint() ) ) -- 0x07a4 from rekordbox
+		subtree:add(buffer(0xa8, 2), string.format("xa8: %04x", buffer(0xa8,2):uint() ) ) -- 0x0000 from rekordbox
+		subtree:add(buffer(0xaa, 2), string.format("xaa: %04x", buffer(0xaa,2):uint() ) ) -- 0x0101 from rekordbox
+		subtree:add(buffer(0xac, 2), string.format("xac: %04x", buffer(0xac,2):uint() ) ) -- 0x0000 from rekordbox
+		subtree:add(buffer(0xae, 2), string.format("xae: %04x", buffer(0xae,2):uint() ) ) -- 0x0101 from rekordbox
+	elseif typ==0x0a then
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
 		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (source info)", buffer(0x28, 4):uint() ) )
 		local x2f = subtree:add(buffer(0x2e, 2), string.format("x2e: %04x (track id)", buffer(0x2e, 2):uint() ) )
 		local x33 = subtree:add(buffer(0x33, 1), string.format("Playlist number: %d (0x%02x)", buffer(0x33, 1):uint(), buffer(0x33, 1):uint() ) )
@@ -301,12 +314,12 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local x76Map = {[0]="Empty", [4]="Mounted"}
 		local x76 = subtree:add(buffer(0x76, 1), string.format("Disc status: %02x (%s)", buffer(0x76, 1):uint(), x76Map[buffer(0x76, 1):uint()] ) )
 
-		local x7bMap = {[2]="Loading", [3]="Playing", [5]="Paused", [6]="Stopped", [9]="Searching"}
+		local x7bMap = {[2]="Loading", [3]="Playing", [5]="Paused", [6]="Stopped/Cue", [7]="Cue playing", [9]="Searching"}
 		local x7b = subtree:add(buffer(0x7b, 1), string.format("Play state: %02x (%s)", buffer(0x7b, 1):uint(), x7bMap[buffer(0x7b, 1):uint()] ) )
 		-- 06 (0110) when track is loaded, cue solid, play/pause blinking
 		-- 05 (0101) when track paused, away from cuepoint, both lamps blinking
 		-- 03 (0011) when track playing, both lamps solid
-		-- 02 Loading, cannot play
+		-- 02 Loading or cannot play
 
 		local x7c = subtree:add(buffer(0x7c, 4), string.format("x7c: %08x (0x31.2e.32.32)", buffer(0x7c, 4):uint() ) )
 
@@ -400,6 +413,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 	elseif typ==0x29 then
 		-- Ports 50002
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
 		local x27 = subtree:add(buffer(0x27, 1), string.format("x27: %02x (%s)", buffer(0x27, 1):uint(), bits(buffer(0x27, 1)) ) )
 		if buffer(0x27,1):bitfield(2,1)>0 then
 			x27:add(buffer(0x27,2), string.format('..1..... = Mixer is master'))
