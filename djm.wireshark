@@ -46,7 +46,6 @@ local deviceTypeMap = {[0x01]="Player", [0x02]="Mixer", [0x04]="Rekordbox"}
 
 -- Port 50000
 djmproto0 = Proto("djm0","DJM0")
-
 local djmproto0_type = ProtoField.uint8("djm0.type", "Type", base.HEX)
 djmproto0.fields = {djmproto0_type}
 
@@ -156,8 +155,11 @@ udp_table:add(50000, djmproto0)
 
 -- Port 50001
 djmproto1 = Proto("djm1","DJM1")
+local djmproto1_type = ProtoField.uint8("djm1.type", "Type", base.HEX)
+djmproto1.fields = {djmproto1_type}
 function djmproto1.dissector(buffer, pinfo, tree)
 	local typ = buffer(0x0a, 1):uint()
+	tree:add(djmproto1_type, typ)
 	pinfo.cols.protocol = string.format("DJ1_%02x", typ)
 	local subtree = tree:add(djmproto1, buffer(), "XDJ/CDJ/DJM Data")
 	subtree:add(buffer(0x00, 10), string.format("Magic: %s (%s)", tostring(buffer(0x00, 10)), tostring(buffer(0x00, 10))=='5173707431576d4a4f4c' and 'good' or 'bad' ))
@@ -168,7 +170,8 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x (1 from Rekordbox, 0 otherwise?)", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
-	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %02x (%d)", buffer(0x22, 2):uint(), buffer(0x22, 2):uint()) )
+	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
+	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %02x (%d) (%s)", buffer(0x22, 2):uint(), buffer(0x22, 2):uint(), lengthGood) )
 	if typ==0x03 then
 		-- Port 50001
 		local x24 = subtree:add(buffer(0x24, 4), string.format("Channels Live: %s%s%s%s",
@@ -189,7 +192,8 @@ function djmproto1.dissector(buffer, pinfo, tree)
 
 	elseif typ==0x27 then
 		-- Port 50002
-		pinfo.cols.info = string.format("Ack new sync assignment")
+		subtree:add(buffer(0x27, 1), string.format("Channel: %02x", buffer(0x27, 1):uint()) )
+		pinfo.cols.info = string.format("Ack new master")
 
 	elseif typ==0x28 then
 		-- Port 50001
@@ -248,11 +252,14 @@ udp_table:add(50001, djmproto1)
 
 -- port 50002
 djmproto2 = Proto("djm2","DJM2")
+local djmproto2_type = ProtoField.uint8("djm2.type", "Type", base.HEX)
+djmproto2.fields = {djmproto2_type}
 function djmproto2.dissector(buffer, pinfo, tree)
-	local subtree = tree:add(djmproto2, buffer(), "Rekordbox")
-	subtree:add(buffer(0x00, 10), string.format("Magic: %s (%s)", tostring(buffer(0x00, 10)), tostring(buffer(0x00, 10))=='5173707431576d4a4f4c' and 'good' or 'bad' ))
 	local typ = buffer(0x0a, 1):uint()
+	tree:add(djmproto2_type, typ)
 	pinfo.cols.protocol = string.format("DJ2_%02x", typ)
+	local subtree = tree:add(djmproto2, buffer(), "DJM device-to-device")
+	subtree:add(buffer(0x00, 10), string.format("Magic: %s (%s)", tostring(buffer(0x00, 10)), tostring(buffer(0x00, 10))=='5173707431576d4a4f4c' and 'good' or 'bad' ))
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 
 	subtree:add(buffer(0x0b, 18), "Device name: "..buffer(0x0b, 18):stringz())
@@ -262,7 +269,8 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x (1 from Rekordbox, 0 otherwise?)", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
-	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d", buffer(0x22, 2):uint()) )
+	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
+	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
 	subtree:add(buffer(0x24, 1), string.format("Channel: %02x", channel))
 
 	if typ==0x0a then
@@ -307,7 +315,10 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 		local x88 = subtree:add(buffer(0x88, 2), string.format("x88: %04x (%s %s)", buffer(0x88, 2):uint(), bits(buffer(0x88,1)), bits(buffer(0x89,1)) ) )
 		if buffer(0x88,1):bitfield(7,1)>0 then
-			x88:add(buffer(0x88,1), string.format('.......1 ........ = Preparing track/seeking?'))
+			x88:add(buffer(0x88,1), string.format('.......1 ........ = Seeking/buffering data'))
+		end
+		if buffer(0x89,1):bitfield(0,1)>0 then
+			--x88:add(buffer(0x89,1), string.format('........ 1....... = 0x0080 (default at boot)'))
 		end
 		if buffer(0x89,1):bitfield(1,1)>0 then
 			x88:add(buffer(0x89,1), string.format('........ .1...... = Device is playing and track annotated'))
@@ -316,12 +327,25 @@ function djmproto2.dissector(buffer, pinfo, tree)
 			x88:add(buffer(0x89,1), string.format('........ ..1..... = Device is master'))
 		end
 		if buffer(0x89,1):bitfield(3,1)>0 then
-			x88:add(buffer(0x89,1), string.format('........ ...1.... = Device is synced to master'))
+			x88:add(buffer(0x89,1), string.format('........ ...1.... = Device is synced'))
+		end
+		if buffer(0x89,1):bitfield(4,1)>0 then
+			--x88:add(buffer(0x89,1), string.format('........ ....1... = 0x0008 (default at boot)'))
+		end
+		if buffer(0x89,1):bitfield(5,1)>0 then
+			--x88:add(buffer(0x89,1), string.format('........ .....1.. = 0x0004 (default at boot)'))
+		end
+		if buffer(0x89,1):bitfield(6,1)>0 then
+			x88:add(buffer(0x89,1), string.format('........ ......1. = 0x0002'))
+		end
+		if buffer(0x89,1):bitfield(7,1)>0 then
+			x88:add(buffer(0x89,1), string.format('........ .......1 = 0x0001'))
 		end
 
-		local x8a = subtree:add(buffer(0x8a, 2), string.format("x8a: %04x", buffer(0x8a, 2):uint() ) )
+		local x8a = subtree:add(buffer(0x8a, 1), string.format("x8a: %02x (Random counter that counts to 0xff and stops for some reason)", buffer(0x8a, 1):uint() ) )
+		local x8b = subtree:add(buffer(0x8b, 1), string.format("x8b: %02x (%s)", buffer(0x8b, 1):uint(), bits(buffer(0x8b, 1)) ) )
 		if buffer(0x8b,1):bitfield(5,1)>0 then
-			x8a:add(buffer(0x8b,1), string.format('........ .....1.. = Device is stopped or stopping with platter depressed'))
+			x8b:add(buffer(0x8b,1), string.format('........ .....1.. = Device is stopped or stopping with platter depressed'))
 		end
 
 		local tempoAdj8c = buffer(0x8c, 4):uint()
@@ -408,7 +432,8 @@ function djmproto4.dissector(buffer, pinfo, tree)
 	local channel = buffer(0x21, 1):uint()
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
 
-	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d", buffer(0x22, 2):uint()) )
+	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
+	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
 
 
 	if typ==0x20 then
