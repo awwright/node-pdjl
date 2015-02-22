@@ -271,12 +271,10 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 	if typ==0x0a then
 		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (source info)", buffer(0x28, 4):uint() ) )
-
 		local x2f = subtree:add(buffer(0x2e, 2), string.format("x2e: %04x (track id)", buffer(0x2e, 2):uint() ) )
 		local x33 = subtree:add(buffer(0x33, 1), string.format("Playlist number: %d (0x%02x)", buffer(0x33, 1):uint(), buffer(0x33, 1):uint() ) )
-
+		local x3c = subtree:add(buffer(0x3c, 4), string.format("x3c: %04x (always ff{4})", buffer(0x3c, 4):uint() ) )
 		local x4c = subtree:add(buffer(0x4c, 4), string.format("x4c: %04x (either f{8} or 0{8})", buffer(0x4c, 4):uint() ) )
-
 		local x66 = subtree:add(buffer(0x66, 1), string.format("Disc ejecting: %02x", buffer(0x66, 1):uint()) )
 
 		-- USB status byte A
@@ -300,7 +298,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local x76 = subtree:add(buffer(0x76, 1), string.format("Disc status: %02x (%s)", buffer(0x76, 1):uint(), x76Map[buffer(0x76, 1):uint()] ) )
 
 		local x7bMap = {[2]="Loading", [3]="Playing", [5]="Paused", [6]="Stopped", [9]="Searching"}
-		local x7b = subtree:add(buffer(0x7b, 1), string.format("x7b: %02x (%s)", buffer(0x7b, 1):uint(), x7bMap[buffer(0x7b, 1):uint()] ) )
+		local x7b = subtree:add(buffer(0x7b, 1), string.format("Play state: %02x (%s)", buffer(0x7b, 1):uint(), x7bMap[buffer(0x7b, 1):uint()] ) )
 		-- 06 (0110) when track is loaded, cue solid, play/pause blinking
 		-- 05 (0101) when track paused, away from cuepoint, both lamps blinking
 		-- 03 (0011) when track playing, both lamps solid
@@ -308,10 +306,8 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 		local x7c = subtree:add(buffer(0x7c, 4), string.format("x7c: %08x (0x31.2e.32.32)", buffer(0x7c, 4):uint() ) )
 
-		local x87 = subtree:add(buffer(0x87, 1), string.format("x87: %02x (%s)", buffer(0x87, 1):uint(), bits(buffer(0x87, 1)) ) )
-		-- 07 for a Link connection
-		-- 08 for a USB connection
-		-- 09 for a CD, SD
+		-- Number of times the device has been master, x2? WHY? What is this?
+		local x86 = subtree:add(buffer(0x86, 2), string.format("x86: %04x", buffer(0x86, 2):uint() ) )
 
 		local x88 = subtree:add(buffer(0x88, 2), string.format("x88: %04x (%s %s)", buffer(0x88, 2):uint(), bits(buffer(0x88,1)), bits(buffer(0x89,1)) ) )
 		if buffer(0x88,1):bitfield(7,1)>0 then
