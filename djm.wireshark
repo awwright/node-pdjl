@@ -273,10 +273,13 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
 
 	if typ==0x05 then
+		-- Sent by CDJ when rekordbox connects
 		subtree:add(buffer(0x24, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x24,1):uint(), buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint()) )
 		subtree:add(buffer(0x28, 4), string.format("x28: %08x", buffer(0x28,4):uint() ) ) -- 0x00000011 from cdj
 		subtree:add(buffer(0x2c, 4), string.format("x2c: %08x", buffer(0x2c,4):uint() ) ) -- 0x00000004 from cdj
+
 	elseif typ==0x06 then
+		-- rekordbox replies to 0_x05 packet with this
 		subtree:add(buffer(0x24, 4), string.format("x24: %08x", buffer(0x24,4):uint() ) ) -- 0x00000011 from rekordbox
 		subtree:add(buffer(0x28, 4), string.format("x28: %08x", buffer(0x28,4):uint() ) ) -- 0x00000004 from rekordbox
 		subtree:add(buffer(0x2c, 64), string.format("x2c: %s", buffer(0x2c,64):ustringz() ) )
@@ -285,10 +288,11 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0xaa, 2), string.format("xaa: %04x", buffer(0xaa,2):uint() ) ) -- 0x0101 from rekordbox
 		subtree:add(buffer(0xac, 2), string.format("xac: %04x", buffer(0xac,2):uint() ) ) -- 0x0000 from rekordbox
 		subtree:add(buffer(0xae, 2), string.format("xae: %04x", buffer(0xae,2):uint() ) ) -- 0x0101 from rekordbox
+
 	elseif typ==0x0a then
 		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
-		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (source info)", buffer(0x28, 4):uint() ) )
-		local x2f = subtree:add(buffer(0x2e, 2), string.format("x2e: %04x (track id)", buffer(0x2e, 2):uint() ) )
+		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (sourceid)", buffer(0x28, 4):uint() ) )
+		local x2f = subtree:add(buffer(0x2e, 2), string.format("x2e: %04x (trackid)", buffer(0x2e, 2):uint() ) )
 		local x33 = subtree:add(buffer(0x33, 1), string.format("Playlist number: %d (0x%02x)", buffer(0x33, 1):uint(), buffer(0x33, 1):uint() ) )
 		local x3c = subtree:add(buffer(0x3c, 4), string.format("x3c: %04x (always ff{4})", buffer(0x3c, 4):uint() ) )
 		local x4c = subtree:add(buffer(0x4c, 4), string.format("x4c: %04x (either f{8} or 0{8})", buffer(0x4c, 4):uint() ) )
@@ -410,6 +414,22 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local xc8 = subtree:add(buffer(0xc8, 4), string.format("Packet id: %08x", buffer(0xc8, 4):uint() ) )
 
 		pinfo.cols.info = string.format("Beatinfo %d|%d", measure, beat)
+
+	elseif typ==0x19 then
+		-- Instruction to load track to device
+		subtree:add(buffer(0x24, 4), string.format("x24: %08x", buffer(0x24,4):uint() ) )
+		subtree:add(buffer(0x28, 4), string.format("x28: %08x (Sourceid)", buffer(0x28,4):uint() ) )
+		subtree:add(buffer(0x2c, 4), string.format("x2c: %08x (Trackid)", buffer(0x2c,4):uint() ) )
+		subtree:add(buffer(0x30, 4), string.format("x30: %08x", buffer(0x30,4):uint() ) )
+		subtree:add(buffer(0x34, 4), string.format("x34: %08x", buffer(0x34,4):uint() ) )
+		subtree:add(buffer(0x38, 4), string.format("x38: %08x", buffer(0x38,4):uint() ) )
+		subtree:add(buffer(0x3c, 4), string.format("x3c: %08x", buffer(0x3c,4):uint() ) )
+		pinfo.cols.info = string.format("Load track", measure, beat)
+
+	elseif typ==0x1a then
+		-- Device responds with ack
+		subtree:add(buffer(0x24, 4), string.format("x24: %08x", buffer(0x24,4):uint() ) )
+		pinfo.cols.info = string.format("Ack load track", measure, beat)
 
 	elseif typ==0x29 then
 		-- Ports 50002
