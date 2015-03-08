@@ -172,7 +172,16 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
 	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %02x (%d) (%s)", buffer(0x22, 2):uint(), buffer(0x22, 2):uint(), lengthGood) )
-	if typ==0x03 then
+	if typ==0x02 then
+		-- Port 50001
+		local x24Map = {[0]="Start", [1]="Stop", [2]="null"}
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Ch1: %02x (%s)", buffer(0x24, 1):uint(), x24Map[buffer(0x24, 1):uint()]))
+		local x25 = subtree:add(buffer(0x25, 1), string.format("Ch2: %02x (%s)", buffer(0x25, 1):uint(), x24Map[buffer(0x25, 1):uint()]))
+		local x26 = subtree:add(buffer(0x26, 1), string.format("Ch3: %02x (%s)", buffer(0x26, 1):uint(), x24Map[buffer(0x26, 1):uint()]))
+		local x26 = subtree:add(buffer(0x27, 1), string.format("Ch4: %02x (%s)", buffer(0x27, 1):uint(), x24Map[buffer(0x27, 1):uint()]))
+		pinfo.cols.info = string.format("Start/stop")
+
+	elseif typ==0x03 then
 		-- Port 50001
 		local x24 = subtree:add(buffer(0x24, 4), string.format("Channels Live: %s%s%s%s",
 			buffer(0x24, 1):uint()>0 and '1' or '_',
