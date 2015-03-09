@@ -200,15 +200,17 @@ function send0x04(){
 
 // 50000 0x06
 // The CDJ goes into regular discovery mode following this:
-function send0x06(){
+function send0x06(pid){
 	var chan = device.channel;
 	var m = device.macaddr;
 	var n = ipToArr(device.ipaddr);
+	var ndev = Object.keys(device.devices).length;
+	pid = pid || 3; // PacketId: Starts at one, counts up to 3
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x06, 0x00, 0x43, 0x44, 0x4a, 0x2d,
 		0x32, 0x30, 0x30, 0x30, 0x6e, 0x65, 0x78, 0x75, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x01, 0x02, 0x00, 0x36, chan, 0x01, m[0], m[1], m[2], m[3], m[4], m[5], n[0], n[1], n[2], n[3],
-		0x04, 0x00, 0x00, 0x00, 0x01, 0x00
+		0x01, 0x02, 0x00, 0x36, chan, pid,  m[0], m[1], m[2], m[3], m[4], m[5], n[0], n[1], n[2], n[3],
+		ndev, 0x00, 0x00, 0x00, 0x01, 0x00
 	]);
 	sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
 		console.log('> 0_x06');
@@ -383,7 +385,7 @@ function doBootup(){
 	}
 }
 function doDiscoverable(){
-	setInterval(send0x06, 2000);
+	setInterval(send0x06, 5000);
 	setInterval(function(){
 		emitBeatinfo();
 		++device.beatinfoBeat;

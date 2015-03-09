@@ -130,7 +130,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 			buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(), buffer(0x2b, 1):uint())
 		)
 		subtree:add(buffer(0x2c, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x2c,1):uint(), buffer(0x2d,1):uint(), buffer(0x2e,1):uint(), buffer(0x2f,1):uint()) )
-		subtree:add(buffer(0x30, 1), string.format("x30: %02x", buffer(0x30, 1):uint())) -- 01..04, maybe number of devices on network?
+		subtree:add(buffer(0x30, 1), string.format("x30: %02x (number of devices on network?)", buffer(0x30, 1):uint())) -- 01..04, maybe number of devices on network?
 		subtree:add(buffer(0x31, 1), string.format("x31: %02x", buffer(0x31, 1):uint())) -- 01 from Rekordbox, 00 otherwise?
 		subtree:add(buffer(0x32, 2), string.format("x32: %04x", buffer(0x32, 2):uint()))
 		local x34 = subtree:add(buffer(0x34,1), string.format("x34: %02x (%s)", buffer(0x34,1):uint(), deviceTypeMap[buffer(0x34,1):uint()]) )
