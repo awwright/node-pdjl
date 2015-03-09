@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 var dgram = require("dgram");
 
+var ifaceConf = require('./iface.json');
 
 var device = {
 	channel: 4,
-	//macaddr: [0x00,0x1f,0x16,0x2c,0xed,0xd1], // Laptop
-	macaddr: [0xb8,0x27,0xeb,0x4a,0xe7,0xe1], // Raspi01
-	ipaddr: '192.168.0.20',
+	macaddr: ifaceConf.mac.split(':').map(function(v){return parseInt(v,16);}),
+	ipaddr: ifaceConf.ip,
 	master: null,
 	sync: false,
 	broadcastIP: '192.168.0.255',
@@ -18,6 +18,9 @@ var device = {
 	modeMixer: false,
 	modeLink: true,
 };
+
+console.log('MAC: '+device.macaddr);
+console.log('IP: '+device.ipaddr);
 
 function ipToArr(s){
 	return s.split('.').map(function(v){ return parseInt(v,10); });
