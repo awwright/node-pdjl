@@ -395,7 +395,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 		local x98 = subtree:add(buffer(0x98, 4), string.format("Tempoadjust: %08x = %03.2f%%", buffer(0x98, 4):uint(), buffer(0x98, 4):uint()*100.0/0x100000.0) )
 
-		local x9c = subtree:add(buffer(0x9c, 4), string.format("x9c: %08x (%s %s %s %s)", buffer(0x9c, 4):uint(), bits(buffer(0x9c, 1)), bits(buffer(0x9d, 1)), bits(buffer(0x9e, 4)), bits(buffer(0x9f, 4)) ) )
+		local x9c = subtree:add(buffer(0x9c, 3), string.format("x9c: %06x (%s %s %s)", buffer(0x9c, 3):uint(), bits(buffer(0x9c, 1)), bits(buffer(0x9d, 1)), bits(buffer(0x9e, 4)) ) )
 		if buffer(0x9d,1):bitfield(7,1)>0 then
 			x9c:add(buffer(0x9d,1), string.format('........ .......1 = Always on?'))
 		end
@@ -403,8 +403,13 @@ function djmproto2.dissector(buffer, pinfo, tree)
 			x9c:add(buffer(0x9d,1), string.format('........ ....1... = Playing forwards at full speed'))
 		end
 		if buffer(0x9e,1):bitfield(7,1)>0 then
-			x9c:add(buffer(0x9e,1), string.format('........ ........ .......1 = This device master'))
+			x9c:add(buffer(0x9e,1), string.format('........ ........ .......1 = This device master (1)'))
 		end
+		if buffer(0x9e,1):bitfield(6,1)>0 then
+			x9c:add(buffer(0x9e,1), string.format('........ ........ ......1. = This device master (2)'))
+		end
+
+		local x9f = subtree:add(buffer(0x9f, 1), string.format("Next master: %02x", buffer(0x9f, 1):uint() ) )
 
 		local xa2 = subtree:add(buffer(0xa2, 2), string.format("Beats since start: %d", buffer(0xa2, 2):uint()) )
 		if buffer(0xa2, 2):uint()==0xffff then

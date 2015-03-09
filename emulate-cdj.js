@@ -17,6 +17,8 @@ var device = {
 	modePlayer: false,
 	modeMixer: false,
 	modeLink: true,
+	beatinfoBeat: 0,
+	beatinfoPacketId: 0,
 };
 
 console.log('MAC: '+device.macaddr);
@@ -213,7 +215,15 @@ function send0x06(){
 	});
 }
 
-function send2x0a(target, beat){
+function emitBeatinfo(){
+	for(var n in device.devices){
+		if(n==device.channel) continue;
+		++device.beatinfoPacketId;
+		send2x0a(device.devices[n].address, device.beatinfoPacketId, device.beatinfoBeat);
+	}
+}
+
+function send2x0a(target, pid, beat){
 	var chan = device.channel;
 	var br = 256-(beat%256);
 	var b4 = (beat%4)+1;
@@ -221,8 +231,8 @@ function send2x0a(target, beat){
 	var isMaster = (device.master==device.channel);
 	var e = 0x8c | (isMaster?0x20:0x00) | (device.sync?0x10:0x00);
 	var x9e = isMaster ? 0x02 : 0x00 ;
-	var t = [0x00, 0x10, 0x00, 0x00];
-	var p = [0, 0, d[0], d[1]];
+	var t = [0x00, 0x10, 0x00, 0x00]; // Track tempo = 100%
+	var p = [(pid>>24)&0xff, (pid>>16)&0xff, (pid>>8)&0xff, pid&0xff]; // Packet id
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x0a, 0x43, 0x44, 0x4a, 0x2d, 0x32,
 		0x30, 0x30, 0x30, 0x6e, 0x65, 0x78, 0x75, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -374,12 +384,8 @@ function doBootup(){
 }
 function doDiscoverable(){
 	setInterval(send0x06, 2000);
-	var beat = 0;
 	setInterval(function(){
-		for(var n in device.devices){
-			if(n==device.channel) continue;
-			++beat;
-			send2x0a(device.devices[n].address, beat);
-		}
+		emitBeatinfo();
+		++device.beatinfoBeat;
 	}, parseInt(60000/138));
 }
