@@ -475,6 +475,19 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local x37 = subtree:add(buffer(0x37, 1), string.format("Current beat: %d", buffer(0x37, 1):uint() ) )
 		pinfo.cols.info = string.format("Master packet of some sort")
 
+	elseif typ==0x35 then
+		-- Ports 50002
+		pinfo.cols.info = string.format("Request settings")
+		subtree:add(buffer(0x24, 1), string.format("x24: %02x", buffer(0x24,1):uint() ) )
+		subtree:add(buffer(0x25, 1), string.format("x25: %02x", buffer(0x25,1):uint() ) )
+		subtree:add(buffer(0x26, 1), string.format("x26: %02x", buffer(0x26,1):uint() ) )
+		subtree:add(buffer(0x27, 1), string.format("x27: %02x", buffer(0x27,1):uint() ) )
+
+	elseif typ==0x36 then
+		-- Ports 50002
+		pinfo.cols.info = string.format("Reply settings")
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+
 	else
 		pinfo.cols.info = string.format("Unknown type 0x%02x", typ)
 	end
