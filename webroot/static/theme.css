@@ -1,0 +1,12 @@
+
+html, body {
+	margin: 0;
+	padding: 0;
+}
+
+div.CDJ {
+	display: inline-block;
+	width: 300px;
+	height: 400px;
+	border: 1px solid black;
+}
