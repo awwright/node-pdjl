@@ -103,7 +103,7 @@ function handleRequest(req, res){
 			React.DOM.head({}, [
 				React.DOM.title(null, 'DJM Control'),
 				React.DOM.link({rel:'stylesheet', type:'text/css', href:'/static/theme.css'}),
-				React.DOM.script({type:'application/javascript', src:'https://cdnjs.cloudflare.com/ajax/libs/react/0.13.0/react-with-addons.min.js'}),
+				React.DOM.script({type:'application/javascript', src:'https://cdnjs.cloudflare.com/ajax/libs/react/0.13.0/react-with-addons.js'}),
 				React.DOM.script({type:'application/javascript', src:'/static/main.js', async:true}),
 			]),
 			React.DOM.body({}, [
@@ -118,10 +118,30 @@ function handleRequest(req, res){
 }
 
 wss.on('connection', function connection(ws) {
-  ws.on('message', function incoming(message) {
-    console.log('received: %s', message);
-  });
-
-  ws.send('something');
+	ws.on('message', function incoming(message) {
+		console.log('received: %s', message);
+		var data = JSON.parse(message);
+		handlers[data.type](data);
+	});
 });
+
+var handlers = {
+	startStop: function(data){
+		var a = [2,2,2,2];
+		a[data.channel-1] = data.value;
+		device.send1x02(a);
+	}
+};
+
+device.on2x0a = function(data){
+	wss.clients.forEach(function(ws){
+		ws.send(JSON.stringify(data));
+	});
+}
+
+var k=0;
+setInterval(function(){
+	k++;
+}, 1000);
+
 

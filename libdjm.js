@@ -117,6 +117,106 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	//console.log("50002 " + rinfo.address + ":" + rinfo.port + ' ' + typeStr);
 	if(type==0x0a){
 		console.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
+		var data = {
+			channel: msg[0x24],
+			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27]],
+			trackid: [msg[0x2e],msg[0x2f],msg[0x30],msg[0x31]],
+			playlistno: msg[0x33],
+			state: msg[0x7b],
+			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Stopped/Cue', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
+			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
+			/*
+				local x88 = subtree:add(buffer(0x88, 2), string.format("x88: %04x (%s %s)", buffer(0x88, 2):uint(), bits(buffer(0x88,1)), bits(buffer(0x89,1)) ) )
+				if buffer(0x88,1):bitfield(7,1)>0 then
+					x88:add(buffer(0x88,1), string.format('.......1 ........ = Seeking/buffering data'))
+				end
+				if buffer(0x89,1):bitfield(0,1)>0 then
+					--x88:add(buffer(0x89,1), string.format('........ 1....... = 0x0080 (default at boot)'))
+				end
+				if buffer(0x89,1):bitfield(1,1)>0 then
+					x88:add(buffer(0x89,1), string.format('........ .1...... = Device is playing and track annotated'))
+				end
+				if buffer(0x89,1):bitfield(2,1)>0 then
+					x88:add(buffer(0x89,1), string.format('........ ..1..... = Device is master'))
+				end
+				if buffer(0x89,1):bitfield(3,1)>0 then
+					x88:add(buffer(0x89,1), string.format('........ ...1.... = Device is synced'))
+				end
+				if buffer(0x89,1):bitfield(4,1)>0 then
+					--x88:add(buffer(0x89,1), string.format('........ ....1... = 0x0008 (default at boot)'))
+				end
+				if buffer(0x89,1):bitfield(5,1)>0 then
+					--x88:add(buffer(0x89,1), string.format('........ .....1.. = 0x0004 (default at boot)'))
+				end
+				if buffer(0x89,1):bitfield(6,1)>0 then
+					x88:add(buffer(0x89,1), string.format('........ ......1. = 0x0002'))
+				end
+				if buffer(0x89,1):bitfield(7,1)>0 then
+					x88:add(buffer(0x89,1), string.format('........ .......1 = 0x0001'))
+				end
+
+				local x8a = subtree:add(buffer(0x8a, 1), string.format("x8a: %02x [Random counter that counts to 0xff and stops for some reason]", buffer(0x8a, 1):uint() ) )
+				local x8b = subtree:add(buffer(0x8b, 1), string.format("x8b: %02x (%s)", buffer(0x8b, 1):uint(), bits(buffer(0x8b, 1)) ) )
+				if buffer(0x8b,1):bitfield(5,1)>0 then
+					x8b:add(buffer(0x8b,1), string.format('........ .....1.. = Device is stopped or stopping with platter depressed'))
+				end
+
+				local tempoAdj8c = buffer(0x8c, 4):uint()
+				local x8c = subtree:add(buffer(0x8c, 4), string.format("Tempoadjust: %08x = %03.2f%%", tempoAdj8c, tempoAdj8c*100.0/0x100000.0) )
+
+				local x90 = subtree:add(buffer(0x90, 2), string.format("x90: %04x (%s %s)", buffer(0x90, 2):uint(), bits(buffer(0x90, 1)), bits(buffer(0x91, 1)) ) )
+				if buffer(0x90,1):bitfield(0,1)>0 then
+					x90:add(buffer(0x90,1), string.format('1....... = Rekordbox sourced track?'))
+				end
+
+				local trackTempo = buffer(0x92, 2):uint()
+				local trackTempoStr = trackTempo==0xffff and 'unknown' or string.format('%03.2f', trackTempo/100)
+				local x92 = subtree:add(buffer(0x92, 2), string.format("Track tempo: %04x (%s)", trackTempo, trackTempoStr) )
+
+				local x94 = subtree:add(buffer(0x94, 4), string.format("x94: %08x", buffer(0x94, 4):uint()) )
+
+				local x98 = subtree:add(buffer(0x98, 4), string.format("Tempoadjust: %08x = %03.2f%%", buffer(0x98, 4):uint(), buffer(0x98, 4):uint()*100.0/0x100000.0) )
+
+				local x9c = subtree:add(buffer(0x9c, 3), string.format("x9c: %06x (%s %s %s)", buffer(0x9c, 3):uint(), bits(buffer(0x9c, 1)), bits(buffer(0x9d, 1)), bits(buffer(0x9e, 4)) ) )
+				if buffer(0x9d,1):bitfield(7,1)>0 then
+					x9c:add(buffer(0x9d,1), string.format('........ .......1 = Always on?'))
+				end
+				if buffer(0x9d,1):bitfield(4,1)>0 then
+					x9c:add(buffer(0x9d,1), string.format('........ ....1... = Playing forwards at full speed'))
+				end
+				if buffer(0x9e,1):bitfield(7,1)>0 then
+					x9c:add(buffer(0x9e,1), string.format('........ ........ .......1 = This device master (1)'))
+				end
+				if buffer(0x9e,1):bitfield(6,1)>0 then
+					x9c:add(buffer(0x9e,1), string.format('........ ........ ......1. = This device master (2)'))
+				end
+
+				local x9f = subtree:add(buffer(0x9f, 1), string.format("Next master: %02x", buffer(0x9f, 1):uint() ) )
+
+				local xa2 = subtree:add(buffer(0xa2, 2), string.format("Beats since start: %d", buffer(0xa2, 2):uint()) )
+				if buffer(0xa2, 2):uint()==0xffff then
+					xa2:add(buffer(0xa3,1), string.format('xFFFF = Unknown'))
+				end
+
+				local xa4 = subtree:add(buffer(0xa4, 1), string.format("xa4: %02x (%s)", buffer(0xa4, 1):uint(), bits(buffer(0xa4, 1)) ) )
+				if buffer(0xa4,1):bitfield(7,1)>0 then
+					xa4:add(buffer(0xa4,1), string.format('.......1 = Beat countdown unknown?'))
+				end
+
+				local beatsToCue = buffer(0xa5, 1):uint()
+				local xa5 = subtree:add(buffer(0xa5, 1), string.format("Beats to next cuepoint: %d (%d.%d)", beatsToCue, beatsToCue/4, beatsToCue%4) )
+
+				local xa6 = subtree:add(buffer(0xa6, 1), string.format("Beat: %d", buffer(0xa6, 1):uint()) )
+				local measure = buffer(0xa2, 2):uint() / 4
+				local beat = buffer(0xa6, 1):uint();
+
+				local xc0 = subtree:add(buffer(0xc0, 4), string.format("Tempoadjust slider position: %08x = %03.2f%%", buffer(0xc0, 4):uint(), buffer(0xc0, 4):uint()*100.0/0x100000.0) )
+				local xc4 = subtree:add(buffer(0xc4, 4), string.format("Tempoadjust play speed/playing: %08x = %03.2f%%", buffer(0xc4, 4):uint(), buffer(0xc4, 4):uint()*100.0/0x100000.0) )
+				local xc8 = subtree:add(buffer(0xc8, 4), string.format("Packet id: %08x", buffer(0xc8, 4):uint() ) )
+
+		*/
+		};
+		if(device.on2x0a) device.on2x0a(data);
 		var newMaster = msg[0x89]&0x20 || msg[0x9e]&0x01;
 		if(!newMaster) return;
 		var newMasterChannel = msg[0x21];
@@ -215,6 +315,20 @@ DJMDevice.prototype.send0x06 = function send0x06(pid){
 	]);
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
 		console.log('> 0_x06');
+	});
+}
+
+// 0=Start, 1=Stop, 2=none
+DJMDevice.prototype.send1x02 = function send1x02(c){
+	var device = this;
+	var chan = device.channel;
+	var b = Buffer([
+		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x02, 0x44, 0x4a, 0x4d, 0x2d, 0x32,
+		0x30, 0x30, 0x30, 0x6e, 0x65, 0x78, 0x75, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+		0x00, chan, 0x00, 0x04, c[0], c[1], c[2], c[3],
+	]);
+	device.sock1.send(b, 0, b.length, 50001, device.broadcastIP, function(e){
+		console.log('> 1_x02');
 	});
 }
 

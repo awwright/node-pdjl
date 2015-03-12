@@ -9,4 +9,5 @@ div.CDJ {
 	width: 300px;
 	height: 400px;
 	border: 1px solid black;
+	vertical-align: top;
 }
