@@ -2,12 +2,10 @@
 var dgram = require("dgram");
 var net = require("net");
 
-var ifaceConf = require('./iface.json');
-
 var DJMDeviceDefaults = {
 	channel: 4,
-	macaddr: ifaceConf.mac,
-	ipaddr: ifaceConf.ip,
+	macaddr: '00:00:00:00:00:00',
+	ipaddr: '10.10.10.10',
 	master: null,
 	sync: false,
 	broadcastIP: '192.168.0.255',
@@ -33,7 +31,7 @@ function IPToArr(s){
 	return s.split('.').map(function(v){ return parseInt(v,10); });
 }
 function MACToArr(s){
-	return s.split('.').map(function(v){ return parseInt(v,10); });
+	return s.split(':').map(function(v){ return parseInt(v,16); });
 }
 Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
