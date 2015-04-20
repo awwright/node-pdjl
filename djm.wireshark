@@ -90,7 +90,8 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0x2e, 1), string.format("Channel: %02x", buffer(0x2e,1):uint()) ) -- Can be 00 for "Auto"
 		subtree:add(buffer(0x2f, 1), string.format("PacketId: %02x", buffer(0x2f,1):uint()) )
 		subtree:add(buffer(0x30, 1), string.format("x30: %02x (01)", buffer(0x30,1):uint()) )
-		subtree:add(buffer(0x31, 1), string.format("x31: %02x (01 or 02... when?)", buffer(0x31,1):uint()) )
+		local x31Map = {[1]="Auto", [2]="Manual"}
+		subtree:add(buffer(0x31, 1), string.format("Channel auto/manual: %02x (%s)", buffer(0x31,1):uint(), x31Map[buffer(0x31,1):uint()]  or "???") )
 	elseif typ==0x03 then
 		-- Seems to be a reply to 0_x02 when device is plugged into a numbered channel port
 		pinfo.cols.info = string.format("Youare plugged into channel %02x", buffer(0x24,1):uint())
