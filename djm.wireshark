@@ -89,7 +89,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		)
 		subtree:add(buffer(0x2e, 1), string.format("Channel: %02x", buffer(0x2e,1):uint()) ) -- Can be 00 for "Auto"
 		subtree:add(buffer(0x2f, 1), string.format("PacketId: %02x", buffer(0x2f,1):uint()) )
-		subtree:add(buffer(0x30, 1), string.format("x30: %02x (01)", buffer(0x30,1):uint()) )
+		subtree:add(buffer(0x30, 1), string.format("x30: %02x (always 01)", buffer(0x30,1):uint()) )
 		local x31Map = {[1]="Auto", [2]="Manual"}
 		subtree:add(buffer(0x31, 1), string.format("Channel auto/manual: %02x (%s)", buffer(0x31,1):uint(), x31Map[buffer(0x31,1):uint()]  or "???") )
 	elseif typ==0x03 then
@@ -307,10 +307,15 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	elseif typ==0x0a then
 		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
 		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (sourceid)", buffer(0x28, 4):uint() ) )
-		local x2f = subtree:add(buffer(0x2e, 2), string.format("x2e: %04x (trackid)", buffer(0x2e, 2):uint() ) )
+		local x2f = subtree:add(buffer(0x2c, 4), string.format("x2c: %04x [trackid]", buffer(0x2c, 4):uint() ) )
 		local x33 = subtree:add(buffer(0x33, 1), string.format("Playlist number: %d (0x%02x)", buffer(0x33, 1):uint(), buffer(0x33, 1):uint() ) )
-		local x3c = subtree:add(buffer(0x3c, 4), string.format("x3c: %04x [always ff{4}]", buffer(0x3c, 4):uint() ) )
-		local x4c = subtree:add(buffer(0x4c, 4), string.format("x4c: %04x [either f{8} or 0{8}]", buffer(0x4c, 4):uint() ) )
+		local x33 = subtree:add(buffer(0x34, 4), string.format("x34: %04x (%d)", buffer(0x34, 4):uint(), buffer(0x34, 4):uint() ) )
+		local x33 = subtree:add(buffer(0x38, 4), string.format("x38: %04x (%d)", buffer(0x38, 4):uint(), buffer(0x38, 4):uint() ) )
+		local x3c = subtree:add(buffer(0x3c, 4), string.format("x3c: %04x [always ff{4} or 00{4}]", buffer(0x3c, 4):uint() ) )
+		local x3c = subtree:add(buffer(0x40, 4), string.format("x40: %04x [always 00{4}]", buffer(0x40, 4):uint() ) )
+		local x3c = subtree:add(buffer(0x44, 4), string.format("x44: %04x [always 3 ??]", buffer(0x44, 4):uint() ) )
+		local x3c = subtree:add(buffer(0x48, 4), string.format("x48: %04x [1000 if CD, else 0000]", buffer(0x48, 4):uint() ) )
+		local x4c = subtree:add(buffer(0x4c, 12), string.format("Disc id: %08x%08x%08x", buffer(0x4c, 4):uint(), buffer(0x50, 4):uint(), buffer(0x54, 4):uint() ) )
 		local x66 = subtree:add(buffer(0x66, 1), string.format("Disc ejecting: %02x", buffer(0x66, 1):uint()) )
 
 		-- USB status byte A
@@ -340,7 +345,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- 03 (0011) when track playing, both lamps solid
 		-- 02 Loading or cannot play
 
-		local x7c = subtree:add(buffer(0x7c, 4), string.format("x7c: %08x (0x31.2e.32.32)", buffer(0x7c, 4):uint() ) )
+		local x7c = subtree:add(buffer(0x7c, 4), string.format("x7c: %08x [always 0x31.2e.32.32]", buffer(0x7c, 4):uint() ) )
 
 		-- Number of times the device has been master, x2? WHY? What is this?
 		local x86 = subtree:add(buffer(0x86, 2), string.format("x86: %04x", buffer(0x86, 2):uint() ) )
@@ -398,10 +403,10 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 		local x9c = subtree:add(buffer(0x9c, 3), string.format("x9c: %06x (%s %s %s)", buffer(0x9c, 3):uint(), bits(buffer(0x9c, 1)), bits(buffer(0x9d, 1)), bits(buffer(0x9e, 4)) ) )
 		if buffer(0x9d,1):bitfield(7,1)>0 then
-			x9c:add(buffer(0x9d,1), string.format('........ .......1 = Always on?'))
+			x9c:add(buffer(0x9d,1), string.format('........ .......1 ........ = Always on?'))
 		end
 		if buffer(0x9d,1):bitfield(4,1)>0 then
-			x9c:add(buffer(0x9d,1), string.format('........ ....1... = Playing forwards at full speed'))
+			x9c:add(buffer(0x9d,1), string.format('........ ....1... ........ = Playing forwards at full speed'))
 		end
 		if buffer(0x9e,1):bitfield(7,1)>0 then
 			x9c:add(buffer(0x9e,1), string.format('........ ........ .......1 = This device master (1)'))

@@ -151,35 +151,23 @@ Now we see this:
 	Appears to be the equivelant of "Hey jackass, I'm using this channel, get your own"
 
 
-=== Master/slave assignment ===
+=== Master/slave assignment test cases ===
 
-Master transferred from mixer to CDJ (from mixer):
-50001 0x2a DJM->CDJ:
-	0000   51 73 70 74 31 57 6d 4a 4f 4c 2a 44 4a 4d 2d 32  Qspt1WmJOL*DJM-2
-	0010   30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00 01  000nexus........
-	0020   00 21 00 08 00 00 00 21 00 00 00 20              .!.....!... 
+Boot CD3 on. Play CD. Assign master by pressing button.
+Boot CD2 on.
+Assign CD2 as master from mixer.
 
-Master transferred to mixer (from CDJ):
-50001 0x2a DJM->CDJ:
-	0000   51 73 70 74 31 57 6d 4a 4f 4c 2a 44 4a 4d 2d 32  Qspt1WmJOL*DJM-2
-	0010   30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00 01  000nexus........
-	0020   00 21 00 08 00 00 00 21 00 00 00 01              .!.....!....
-50001 0x27 DJM->CDJ:
-	0000   51 73 70 74 31 57 6d 4a 4f 4c 27 44 4a 4d 2d 32  Qspt1WmJOL'DJM-2
-	0010   30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00 01  000nexus........
-	0020   00 21 00 04 00 00 00 21 00 00 00 01              .!.....!....
+Boot CD3 on. Play CD. Assign master by pressing button.
+Boot CD2 on.
+Assign CD2 as master from CD2 master button.
 
-Turned sync on on CDJ while CDJ is master:
-50001 0x2a DJM->CDJ:
-	0000   51 73 70 74 31 57 6d 4a 4f 4c 2a 44 4a 4d 2d 32  Qspt1WmJOL*DJM-2
-	0010   30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00 01  000nexus........
-	0020   00 21 00 08 00 00 00 21 00 00 00 10              .!.....!....
+Boot CD3 on. Play CD. Assign master by pressing button.
+Boot CD2 on. Play file.
+Assign CD2 as master by sliding fader.
 
-Turned sync off on CDJ while CDJ is master:
-50001 0x2a DJM->CDJ:
-	0000   51 73 70 74 31 57 6d 4a 4f 4c 2a 44 4a 4d 2d 32  Qspt1WmJOL*DJM-2
-	0010   30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00 01  000nexus........
-	0020   00 21 00 08 00 00 00 21 00 00 00 20              .!.....!... 
+Boot CD3 on. Play CD. Assign master by pressing button.
+Boot CD2 on. Play CD.
+Assign CD2 as master by pressing CD3 master button.
 
 ==="Link" functionality===
 
