@@ -239,10 +239,27 @@ packet4d==3c MIDI Beat packet
 	Contains timecode, once every beat it appears, at byte 86
 
 
-CDJ startup sequence:
-1. sends out a DHCP Discover request
-2. Sends out DHCP Request
-3. Sends packet4d==25 (with one byte after) several times
-4. Sends packet4d==2c
-5. Sends packet4d==26
-6. Begins regular broadcast of packet4d==36 packets
+CDJ startup sequence with no devices on network:
+1. Sends out a DHCP Discover request up to three times. Wait 1s, 2s, then 3s.
+2. If no DHCP reply, fall back to link-local address negotiation. Send out three ARP requests at 1s intervals.
+3. Sends packetType=x0a 3 times, 300ms wait
+4. Sends packetType=x00 3 times, 300ms wait
+5. Sends packetType=x02 3 times, 300ms wait
+6. Sends packetType=x04 3 times, 300ms wait
+6. Sends packetType=x06 packet, 400ms wait
+7. Begins regular broadcast of packetType=x06 packets, 1s intervals
+
+CDJ startup sequence with mixer on network:
+1. Sends out a DHCP Discover request up to three times. Wait 1s, 2s, then 3s.
+2. If no DHCP reply, fall back to link-local address negotiation. Send out three ARP requests at 1s intervals.
+3. Sends packetType=x0a 3 times, 300ms wait
+4. Sends packetType=x00 3 times, 300ms wait
+5. Sends packetType=x02 3 times, 300ms wait
+6. Sends packetType=x04
+7. DJM replies packetType=x05, waits 180ms
+8. DJM sends packetType=2_x29 at 200ms intervals
+9. Meanwhile, CDJ sends packetType=x06, waits 1300ms
+10 Sends packetType=x06 at 200ms intervals
+
+
+The packetType=x06 heartbeat/discover packets emitted at 2-second intervals appear to tell other devices about the existance of a mountable filesystem. On a network with one DJM and one CDJ, after the DJM broadcasts this packet, the CDJ attempts to mount the DJM.

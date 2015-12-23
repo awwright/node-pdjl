@@ -22,11 +22,13 @@ end
 function typestr(typ)
 	-- Port 50000 types
 	if typ==0x00 then
-		return 'Post-Boot'
+		return 'Bootup0'
+	elseif typ==0x02 then
+		return 'Bootup2'
 	elseif typ==0x04 then
-		return '0x04'
+		return 'Bootup4'
 	elseif typ==0x06 then
-		return 'Discover'
+		return 'Heartbeat'
 	elseif typ==0x0a then
 		return 'Beatinfo or Bootstrap'
 	-- Port 50001 types
@@ -125,7 +127,8 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		--0030   03 00 00 00 01 00
 		
 		subtree:add(buffer(0x24, 1), string.format("Channel: %x", buffer(0x24, 1):uint()))
-		subtree:add(buffer(0x25, 1), string.format("x25: %x", buffer(0x25, 1):uint()))
+		-- CDJ booting up with one mixer on the network with 02(manual) configuration sends x01
+		subtree:add(buffer(0x25, 1), string.format("x25: %x [device type? CDJ sends x01, someone else once sent x03]", buffer(0x25, 1):uint()))
 		subtree:add(buffer(0x26, 6), string.format("MAC: %02x:%02x:%02x:%02x:%02x:%02x",
 			buffer(0x26, 1):uint(), buffer(0x27, 1):uint(), buffer(0x28, 1):uint(),
 			buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(), buffer(0x2b, 1):uint())
