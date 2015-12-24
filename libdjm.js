@@ -99,13 +99,13 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		}else if(a==0x01 || a==0x02){
 			console.log('< 1_x2a Become master!');
 			device.master = device.channel;
-			send1x26(rinfo.address);
+			device.send1x26(rinfo.address);
 		}else{
 			console.log(' 1_x2b Unknown sync assignment???', a);
 		}
 	}else if(type==0x26){
 		console.log('< 1_x26 Acknowledge new master');
-		send1x27(rinfo.address);
+		device.send1x27(rinfo.address);
 	}
 }
 
