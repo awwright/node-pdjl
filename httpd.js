@@ -12,6 +12,7 @@ device.channel = ifaceConf.channel || 4;
 device.macaddr = ifaceConf.mac;
 device.ipaddr = ifaceConf.ip;
 device.broadcastIP = ifaceConf.bcast;
+var bindIP = null;
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
@@ -39,22 +40,22 @@ sock2.on("listening", function () {
 });
 
 var waiting = 3;
-sock0.bind(50000, device.ipaddr, function onBound0(){
+sock0.bind(50000, bindIP, function onBound0(){
 	console.log('bound0', device.ipaddr, device.broadcastIP);
+	//sock0.addMembership(device.ipaddr, device.broadcastIP);
 	sock0.setBroadcast(true);
-	sock0.addMembership(device.broadcastIP);
 	doneBind();
 });
-sock1.bind(50001, device.ipaddr, function onBound1(){
+sock1.bind(50001, bindIP, function onBound1(){
 	console.log('bound1', device.ipaddr, device.broadcastIP);
+	//sock1.addMembership(device.ipaddr, device.broadcastIP);
 	sock1.setBroadcast(true);
-	sock1.addMembership(device.broadcastIP);
 	doneBind();
 });
-sock2.bind(50002, device.ipaddr, function onBound2(){
+sock2.bind(50002, bindIP, function onBound2(){
 	console.log('bound2', device.ipaddr, device.broadcastIP);
+	//sock2.addMembership(device.ipaddr, device.broadcastIP);
 	sock2.setBroadcast(true);
-	sock2.addMembership(device.broadcastIP);
 	doneBind();
 });
 function doneBind(){

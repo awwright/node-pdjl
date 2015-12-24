@@ -59,7 +59,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		if(msg[0x23]==0x21){
 			device.mixerIP = rinfo.address;
 		}
-		sendDeviceAck(rinfo.address);
+		device.sendDeviceAck(rinfo.address);
 	}else if(type==0x06){
 		var chan = msg[0x24];
 		//console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device is channel '+msg[0x24].toString(16));
@@ -351,7 +351,7 @@ DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 	var e = 0x8c | (isMaster?0x20:0x00) | (device.sync?0x10:0x00);
 	var x9e = isMaster ? 0x02 : 0x00 ;
 	var t = [0x00, 0x10, 0x00, 0x00]; // Track tempo = 100%
-	var c = [device.beatinfoBPM>>8&0xff, beatinfoBPM&0xff];
+	var c = [device.beatinfoBPM>>8&0xff, device.beatinfoBPM&0xff];
 	var p = [(pid>>24)&0xff, (pid>>16)&0xff, (pid>>8)&0xff, pid&0xff]; // Packet id
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x0a, 0x43, 0x44, 0x4a, 0x2d, 0x32,
