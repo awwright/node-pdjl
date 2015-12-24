@@ -253,7 +253,7 @@ CDJ startup sequence with mixer on network:
 1. Sends out a DHCP Discover request up to three times. Wait 1s, 2s, then 3s.
 2. If no DHCP reply, fall back to link-local address negotiation. Send out three ARP requests at 1s intervals.
 3. Sends packetType=x0a 3 times, 300ms wait
-4. Sends packetType=x00 3 times, 300ms wait
+4. Sends packetType=x00 3 times, 300ms wait (If the device is plugged directly into the mixer, the mixer will reply to it here)
 5. Sends packetType=x02 3 times, 300ms wait
 6. Sends packetType=x04
 7. DJM replies packetType=x05, waits 180ms

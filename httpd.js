@@ -15,10 +15,12 @@ device.broadcastIP = ifaceConf.bcast;
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
+console.log('Bcast: '+device.broadcastIP);
 
 var sock0 = device.sock0 = dgram.createSocket("udp4");
 var sock1 = device.sock1 = dgram.createSocket("udp4");
 var sock2 = device.sock2 = dgram.createSocket("udp4");
+
 
 sock0.on("message", device.onMsg0.bind(device));
 sock1.on("message", device.onMsg1.bind(device));
@@ -26,14 +28,17 @@ sock2.on("message", device.onMsg2.bind(device));
 
 sock0.on("listening", function () {
 	var address = sock0.address();
+	sock0.addMembership(device.broadcastIP, device.ipaddr);
 	console.log("server listening " +	address.address + ":" + address.port);
 });
 sock1.on("listening", function () {
 	var address = sock1.address();
+	sock1.addMembership(device.broadcastIP, device.ipaddr);
 	console.log("server listening " +	address.address + ":" + address.port);
 });
 sock2.on("listening", function () {
 	var address = sock2.address();
+	sock2.addMembership(device.broadcastIP, device.ipaddr);
 	console.log("server listening " +	address.address + ":" + address.port);
 });
 
