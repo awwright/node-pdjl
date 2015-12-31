@@ -207,8 +207,8 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	}
 }
 
-DJMDevice.prototype.log = function log(msg){
-	console.log(msg);
+DJMDevice.prototype.log = function log(){
+	console.log.apply(console, arguments);
 }
 
 DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
