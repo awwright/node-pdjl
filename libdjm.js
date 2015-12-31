@@ -431,7 +431,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 				return;
 			}
 			device.send0x00(seq);
-			timeout = setTimeout(sendNext, 1000);
+			timeout = setTimeout(sendNext, 300);
 			seq++;
 		}
 		sendNext();
@@ -451,7 +451,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 				return;
 			}
 			device.send0x02(seq, mixerIp);
-			timeout = setTimeout(sendNext, 1000);
+			timeout = setTimeout(sendNext, 300);
 			seq++;
 		}
 		sendNext();
@@ -472,7 +472,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 				return;
 			}
 			device.send0x04(seq);
-			timeout = setTimeout(sendNext, 1000);
+			timeout = setTimeout(sendNext, 300);
 			seq++;
 		}
 		sendNext();
