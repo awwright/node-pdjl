@@ -149,13 +149,14 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 			device.sync = false;
 		}else if(a==0x01 || a==0x02){
 			console.log('< 1_x2a Become master!');
-			device.master = device.channel;
+			device.handleNewMaster(device.channel);
 			device.send1x26(rinfo.address);
 		}else{
 			console.log(' 1_x2b Unknown sync assignment???', a);
 		}
 	}else if(type==0x26){
 		console.log('< 1_x26 Acknowledge new master');
+		device.handleNewMaster(msg[0x27]);
 		device.send1x27(rinfo.address);
 	}
 }
@@ -165,7 +166,9 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	var type = msg[0x0a];
 	var typeStr = ('0'+type.toString(16)).substr(-2);
 	//console.log("50002 " + rinfo.address + ":" + rinfo.port + ' ' + typeStr);
-	if(type==0x0a){
+	if(type==0x03){
+		// Channels on air
+	}else if(type==0x0a){
 		console.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
 		var data = {
 			channel: msg[0x24],
@@ -174,7 +177,10 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			playlistno: msg[0x33],
 			state: msg[0x7b],
 			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Stopped/Cue', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
+			beat: msg[0xa6],
 			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
+			currentBpm: ((msg[0x92]<<8) | (msg[0x93]))/100,
+			master: !!(msg[0x9e]&0x01),
 		};
 		if(device.on2x0a) device.on2x0a(data);
 		var newMaster = msg[0x89]&0x20 || msg[0x9e]&0x01;
@@ -183,14 +189,32 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		if(newMasterChannel==device.channel) return;
 		if(device.master!=newMasterChannel){
 			console.log('< 2_x0a New master on ch.'+newMasterChannel.toString(16), msg[0x89].toByteString(), msg[0x9e].toByteString());
-			device.master = newMasterChannel;
+			device.handleNewMaster(newMasterChannel);
 		}
 	}else if(type==0x29){
-		//console.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Channels on-air');
+		console.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
+		var data = {
+			channel: msg[0x21],
+			master: !!(msg[0x27]&0x20),
+		}
+		if(device.on2x29) device.on2x29(data);
+		if(data.master){
+			device.handleNewMaster(device.channel);
+
+		}
 	}else{
 		console.log('< '+rinfo.address + ":" + rinfo.port+' Unknown type 2_x'+typeStr);
 	}
 }
+
+DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
+	var device = this;
+	if(device.master===ch) return;
+	var oldMaster = ch;
+	device.master = ch;
+	if(device.onNewMaster) device.onNewMaster(ch);
+}
+
 
 // 50000 0x0a
 DJMDevice.prototype.send0x0a = function send0x0a(){
