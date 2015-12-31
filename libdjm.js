@@ -51,32 +51,32 @@ DJMDevice.prototype.connect = function connect() {
 
 	sock0.on("listening", function () {
 		var address = sock0.address();
-		console.log("server listening " +	address.address + ":" + address.port);
+		device.log("server listening " +	address.address + ":" + address.port);
 	});
 	sock1.on("listening", function () {
 		var address = sock1.address();
-		console.log("server listening " +	address.address + ":" + address.port);
+		device.log("server listening " +	address.address + ":" + address.port);
 	});
 	sock2.on("listening", function () {
 		var address = sock2.address();
-		console.log("server listening " +	address.address + ":" + address.port);
+		device.log("server listening " +	address.address + ":" + address.port);
 	});
 
 	var waiting = 3;
 	sock0.bind(50000, bindIP, function onBound0(){
-		console.log('bound0', device.ipaddr, device.broadcastIP);
+		device.log('bound0', device.ipaddr, device.broadcastIP);
 		//sock0.addMembership(device.ipaddr, device.broadcastIP);
 		sock0.setBroadcast(true);
 		doneBind();
 	});
 	sock1.bind(50001, bindIP, function onBound1(){
-		console.log('bound1', device.ipaddr, device.broadcastIP);
+		device.log('bound1', device.ipaddr, device.broadcastIP);
 		//sock1.addMembership(device.ipaddr, device.broadcastIP);
 		sock1.setBroadcast(true);
 		doneBind();
 	});
 	sock2.bind(50002, bindIP, function onBound2(){
-		console.log('bound2', device.ipaddr, device.broadcastIP);
+		device.log('bound2', device.ipaddr, device.broadcastIP);
 		//sock2.addMembership(device.ipaddr, device.broadcastIP);
 		sock2.setBroadcast(true);
 		doneBind();
@@ -91,29 +91,29 @@ DJMDevice.prototype.connect = function connect() {
 
 DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 	var device = this;
-	//console.log("50000 server got: " + msg + " from " + rinfo.address + ":" + rinfo.port);
+	//device.log("50000 server got: " + msg + " from " + rinfo.address + ":" + rinfo.port);
 	var type = msg[0x0a];
 	var typeStr = ('0'+type.toString(16)).substr(-2);
 	var deviceName = msg.toString().substr(0x0b, 16).replace(/\x00/g, '');
-	//console.log(rinfo.address + " " + deviceName + ' ' + typeStr);
+	//device.log(rinfo.address + " " + deviceName + ' ' + typeStr);
 	if(type==0x01){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr);
 		if(device.on0x01) device.on0x01(msg, rinfo);
 	}else if(type==0x03){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr);
 		if(device.on0x03) device.on0x03(msg, rinfo);
 	}else if(type==0x05){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr);
 		if(device.on0x05) device.on0x05(msg, rinfo);
 	}else if(type==0x04){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device '+rinfo.address+' is channel '+msg[0x23].toString(16));
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device '+rinfo.address+' is channel '+msg[0x23].toString(16));
 		if(msg[0x23]==0x21){
 			device.mixerIP = rinfo.address;
 		}
 		device.sendDeviceAck(rinfo.address);
 	}else if(type==0x06){
 		var chan = msg[0x24];
-		//console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device is channel '+msg[0x24].toString(16));
+		//device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device is channel '+msg[0x24].toString(16));
 		device.devices[chan] = {
 			chan: chan,
 			alive: new Date,
@@ -122,19 +122,19 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		for(var n in device.devices){
 			if(device.devices[n].alive.valueOf() > new Date().valueOf()+6000){
 				delete device.devices[n];
-				console.log('Lost '+n);
+				device.log('Lost '+n);
 			}
 		}
 	}else if(type==0x08){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+': You must change channels!');
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+': You must change channels!');
 	}else{
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Unknown type');
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Unknown type');
 	}
 }
 
 DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 	var device = this;
-	//console.log("50001 server got: " + msg + " from " + rinfo.address + ":" + rinfo.port);
+	//device.log("50001 server got: " + msg + " from " + rinfo.address + ":" + rinfo.port);
 	var type = msg[0x0a];
 	var typeStr = ('0'+type.toString(16)).substr(-2);
 	if(type==0x2a){
@@ -142,20 +142,20 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		// Or slaved/synced
 		var a = msg[0x2b];
 		if(a==0x10){
-			console.log('< 1_x2a Sync to master');
+			device.log('< 1_x2a Sync to master');
 			device.sync = true;
 		}else if(a==0x20){
-			console.log('< 1_x2a Free from sync');
+			device.log('< 1_x2a Free from sync');
 			device.sync = false;
 		}else if(a==0x01 || a==0x02){
-			console.log('< 1_x2a Become master!');
+			device.log('< 1_x2a Become master!');
 			device.handleNewMaster(device.channel);
 			device.send1x26(rinfo.address);
 		}else{
-			console.log(' 1_x2b Unknown sync assignment???', a);
+			device.log(' 1_x2b Unknown sync assignment???', a);
 		}
 	}else if(type==0x26){
-		console.log('< 1_x26 Acknowledge new master');
+		device.log('< 1_x26 Acknowledge new master');
 		device.handleNewMaster(msg[0x27]);
 		device.send1x27(rinfo.address);
 	}
@@ -165,11 +165,11 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	var device = this;
 	var type = msg[0x0a];
 	var typeStr = ('0'+type.toString(16)).substr(-2);
-	//console.log("50002 " + rinfo.address + ":" + rinfo.port + ' ' + typeStr);
+	//device.log("50002 " + rinfo.address + ":" + rinfo.port + ' ' + typeStr);
 	if(type==0x03){
 		// Channels on air
 	}else if(type==0x0a){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
 		var data = {
 			channel: msg[0x24],
 			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27]],
@@ -188,11 +188,11 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		var newMasterChannel = msg[0x21];
 		if(newMasterChannel==device.channel) return;
 		if(device.master!=newMasterChannel){
-			console.log('< 2_x0a New master on ch.'+newMasterChannel.toString(16), msg[0x89].toByteString(), msg[0x9e].toByteString());
+			device.log('< 2_x0a New master on ch.'+newMasterChannel.toString(16), msg[0x89].toByteString(), msg[0x9e].toByteString());
 			device.handleNewMaster(newMasterChannel);
 		}
 	}else if(type==0x29){
-		console.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
 		var data = {
 			channel: msg[0x21],
 			master: !!(msg[0x27]&0x20),
@@ -203,8 +203,12 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 
 		}
 	}else{
-		console.log('< '+rinfo.address + ":" + rinfo.port+' Unknown type 2_x'+typeStr);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' Unknown type 2_x'+typeStr);
 	}
+}
+
+DJMDevice.prototype.log = function log(msg){
+	console.log(msg);
 }
 
 DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
@@ -225,7 +229,7 @@ DJMDevice.prototype.send0x0a = function send0x0a(){
 		0x01,0x02,0x00,0x25,0x01,
 	]);
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
-		console.log('> 0x_0a', device.broadcastIP, arguments);
+		device.log('> 0x_0a', device.broadcastIP, arguments);
 	});
 }
 
@@ -239,7 +243,7 @@ DJMDevice.prototype.send0x00 = function send0x00(i){
 		0x01, 0x02, 0x00, 0x2c, i,    0x01, m[0], m[1], m[2], m[3], m[4], m[5],
 	]);
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
-		console.log('> 0_x00', arguments);
+		device.log('> 0_x00', arguments);
 	});
 }
 
@@ -261,7 +265,7 @@ DJMDevice.prototype.send0x02 = function send0x02(i, target){
 		0x01, x31,
 	]);
 	device.sock0.send(b, 0, b.length, 50000, target, function(e){
-		console.log('> 0_x02');
+		device.log('> 0_x02');
 	});
 }
 
@@ -275,7 +279,7 @@ DJMDevice.prototype.send0x04 = function send0x04(i){
 		0x01, 0x02, 0x00, 0x26, chan, i
 	]);
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
-		console.log('> 0_x04');
+		device.log('> 0_x04');
 	});
 }
 
@@ -299,7 +303,7 @@ DJMDevice.prototype.send0x06 = function send0x06(){
 		ndev, 0x00, 0x00, 0x00, 0x01, 0x00
 	]);
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
-		console.log('> 0_x06');
+		device.log('> 0_x06');
 	});
 }
 
@@ -313,7 +317,7 @@ DJMDevice.prototype.send1x02 = function send1x02(c){
 		0x00, chan, 0x00, 0x04, c[0], c[1], c[2], c[3],
 	]);
 	device.sock1.send(b, 0, b.length, 50001, device.broadcastIP, function(e){
-		console.log('> 1_x02');
+		device.log('> 1_x02');
 	});
 }
 
@@ -355,7 +359,7 @@ DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 		0x00, 0x00, 0x00, 0x00
 	]);
 	device.sock2.send(b, 0, b.length, 50002, target, function(e){
-		console.log('> 2_x0a', target, pid, beat);
+		//device.log('> 2_x0a', target, pid, beat);
 	});
 }
 
@@ -376,7 +380,7 @@ DJMDevice.prototype.send1x26 = function send1x26(ip){
 		0x00, chan, 0x00, 0x04, 0x00, 0x00, 0x00, chan,
 	]);
 	device.sock1.send(b, 0, b.length, 50001, ip, function(e){
-		console.log('> 1_x26', arguments);
+		device.log('> 1_x26', arguments);
 	});
 }
 
@@ -391,7 +395,7 @@ DJMDevice.prototype.send1x27 = function send1x27(ip){
 		0x00, chan, 0x00, 0x08, 0x00, 0x00, 0x00, chan, 0x00, 0x00, 0x00, 0x01,
 	]);
 	device.sock1.send(b, 0, b.length, 50001, ip, function(e){
-		console.log('> 1_x27', arguments);
+		device.log('> 1_x27', arguments);
 	});
 }
 
@@ -405,7 +409,7 @@ DJMDevice.prototype.sendDeviceAck = function sendDeviceAck(ip){
 		0x01, 0x02, 0x00, 0x26, c,    0x01,
 	]);
 	device.sock0.send(b, 0, b.length, 50000, ip, function(e){
-		console.log('> 0_x05');
+		device.log('> 0_x05');
 	});
 }
 
@@ -463,7 +467,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 		function sendNext(){
 			if(seq>3){
 				clearTimeout(timeout);
-				console.log('Weare the first device on the network?');
+				device.log('Weare the first device on the network?');
 				device.doDiscoverable();
 				return;
 			}
