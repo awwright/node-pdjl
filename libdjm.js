@@ -38,6 +38,57 @@ Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
 }
 
+DJMDevice.prototype.connect = function connect() {
+	var device = this;;
+	var bindIP = null;
+	var sock0 = device.sock0 = dgram.createSocket("udp4");
+	var sock1 = device.sock1 = dgram.createSocket("udp4");
+	var sock2 = device.sock2 = dgram.createSocket("udp4");
+
+	sock0.on("message", device.onMsg0.bind(device));
+	sock1.on("message", device.onMsg1.bind(device));
+	sock2.on("message", device.onMsg2.bind(device));
+
+	sock0.on("listening", function () {
+		var address = sock0.address();
+		console.log("server listening " +	address.address + ":" + address.port);
+	});
+	sock1.on("listening", function () {
+		var address = sock1.address();
+		console.log("server listening " +	address.address + ":" + address.port);
+	});
+	sock2.on("listening", function () {
+		var address = sock2.address();
+		console.log("server listening " +	address.address + ":" + address.port);
+	});
+
+	var waiting = 3;
+	sock0.bind(50000, bindIP, function onBound0(){
+		console.log('bound0', device.ipaddr, device.broadcastIP);
+		//sock0.addMembership(device.ipaddr, device.broadcastIP);
+		sock0.setBroadcast(true);
+		doneBind();
+	});
+	sock1.bind(50001, bindIP, function onBound1(){
+		console.log('bound1', device.ipaddr, device.broadcastIP);
+		//sock1.addMembership(device.ipaddr, device.broadcastIP);
+		sock1.setBroadcast(true);
+		doneBind();
+	});
+	sock2.bind(50002, bindIP, function onBound2(){
+		console.log('bound2', device.ipaddr, device.broadcastIP);
+		//sock2.addMembership(device.ipaddr, device.broadcastIP);
+		sock2.setBroadcast(true);
+		doneBind();
+	});
+	function doneBind(){
+		if(--waiting===0){
+			device.boot();
+		}
+	}
+}
+
+
 DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 	var device = this;
 	//console.log("50000 server got: " + msg + " from " + rinfo.address + ":" + rinfo.port);
