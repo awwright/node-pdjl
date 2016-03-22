@@ -58,6 +58,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	tree:add(djmproto0_type, typ)
 	pinfo.cols.protocol = string.format("DJ0_%02x", typ)
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
+	-- this following packet is x01 in a startup case packet_type=5000:0x02
 	subtree:add(buffer(0x0b, 1), string.format("x0b: %s (always nil?)", tostring(buffer(0x0b, 1)) ))
 	subtree:add(buffer(0x0c, 18), "Device name: "..buffer(0x0c, 18):stringz())
 	subtree:add(buffer(0x1e, 2), string.format("x1e: %04x (always nil, device name?)", buffer(0x1e, 2):uint()) )

@@ -14,26 +14,40 @@ console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
 
-var sock0 = device.sock0 = dgram.createSocket("udp4");
-var sock1 = device.sock1 = dgram.createSocket("udp4");
-var sock2 = device.sock2 = dgram.createSocket("udp4");
+var waiting = 0;
 
-sock0.on("message", device.onMsg0.bind(device));
-sock1.on("message", device.onMsg1.bind(device));
-sock2.on("message", device.onMsg2.bind(device));
+function listenUDP(addr, port, fn){
+	var sock = dgram.createSocket("udp4");
+	sock.on("message", function(v, w){
+		//console.log(v);
+		fn(v, w);
+	});
+	sock.on("listening", function () {
+		var address = sock.address();
+		console.log("server listening " +	address.address + ":" + address.port);
+	});
+	sock.bind(port, addr, function onBound(){
+		console.log('bound');
+		sock.setBroadcast(true);
+		doneBind();
+	});
+	waiting++;
+	return sock;
+}
 
-sock0.on("listening", function () {
-	var address = sock0.address();
-	console.log("server listening " +	address.address + ":" + address.port);
-});
-sock1.on("listening", function () {
-	var address = sock1.address();
-	console.log("server listening " +	address.address + ":" + address.port);
-});
-sock2.on("listening", function () {
-	var address = sock2.address();
-	console.log("server listening " +	address.address + ":" + address.port);
-});
+device.sock0 = listenUDP(device.ipaddr, 50000, device.onMsg0.bind(device));
+device.sock0b = listenUDP(device.broadcastIP, 50000, device.onMsg0.bind(device));
+device.sock1 = listenUDP(device.ipaddr, 50001, device.onMsg1.bind(device));
+device.sock1b = listenUDP(device.broadcastIP, 50001, device.onMsg1.bind(device));
+device.sock2 = listenUDP(device.ipaddr, 50002, device.onMsg2.bind(device));
+device.sock2b = listenUDP(device.broadcastIP, 50002, device.onMsg2.bind(device));
+
+function doneBind(){
+	if(--waiting===0){
+		console.log('Starting boot');
+		device.boot();
+	}
+}
 
 net.createServer(function(socket) {
 	console.log('NEW CONNECTION 12523', socket);
@@ -63,25 +77,4 @@ net.createServer(function(socket) {
 	socket.resume();
 }).listen(1051);
 
-var waiting = 3;
-sock0.bind(50000, device.ipaddr, function onBound0(){
-	console.log('bound0');
-	sock0.setBroadcast(true);
-	doneBind();
-});
-sock1.bind(50001, device.ipaddr, function onBound1(){
-	console.log('bound1');
-	sock1.setBroadcast(true);
-	doneBind();
-});
-sock2.bind(50002, device.ipaddr, function onBound2(){
-	console.log('bound2');
-	sock2.setBroadcast(true);
-	doneBind();
-});
-function doneBind(){
-	if(--waiting===0){
-		device.boot();
-	}
-}
 

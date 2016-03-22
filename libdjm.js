@@ -490,9 +490,9 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 }
 
 DJMDevice.prototype.boot = function boot(){
-	var wait = 200;
+	var wait = 300;
+	setTimeout(this.send0x0a.bind(this), 0*wait);
 	setTimeout(this.send0x0a.bind(this), 1*wait);
 	setTimeout(this.send0x0a.bind(this), 2*wait);
-	setTimeout(this.send0x0a.bind(this), 3*wait);
-	setTimeout(this.doBootup.bind(this), 4*wait);
+	setTimeout(this.doBootup.bind(this), 3*wait);
 }
