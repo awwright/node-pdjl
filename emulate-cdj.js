@@ -9,6 +9,7 @@ var device = new DJMDevice;
 device.channel = ifaceConf.channel || 4;
 device.macaddr = ifaceConf.mac;
 device.ipaddr = ifaceConf.ip;
+device.broadcastIP = ifaceConf.bcast;
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
