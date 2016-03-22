@@ -58,8 +58,8 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	tree:add(djmproto0_type, typ)
 	pinfo.cols.protocol = string.format("DJ0_%02x", typ)
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
-	-- this following packet is x01 in a startup case packet_type=5000:0x02
-	subtree:add(buffer(0x0b, 1), string.format("x0b: %s (always nil?)", tostring(buffer(0x0b, 1)) ))
+	-- This following packet is x01 if being asked directly to the mixer, 0x00 if broadcast
+	subtree:add(buffer(0x0b, 1), string.format("Query channel from mixer: %s", tostring(buffer(0x0b, 1)) ))
 	subtree:add(buffer(0x0c, 18), "Device name: "..buffer(0x0c, 18):stringz())
 	subtree:add(buffer(0x1e, 2), string.format("x1e: %04x (always nil, device name?)", buffer(0x1e, 2):uint()) )
 	local channel = buffer(0x20, 2):uint()
@@ -92,7 +92,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		)
 		subtree:add(buffer(0x2e, 1), string.format("Channel: %02x", buffer(0x2e,1):uint()) ) -- Can be 00 for "Auto"
 		subtree:add(buffer(0x2f, 1), string.format("PacketId: %02x", buffer(0x2f,1):uint()) )
-		subtree:add(buffer(0x30, 1), string.format("x30: %02x (always 01)", buffer(0x30,1):uint()) )
+		subtree:add(buffer(0x30, 1), string.format("x30: %02x (01 from CDJ, 04 from Rekordbox)", buffer(0x30,1):uint()) )
 		local x31Map = {[1]="Auto", [2]="Manual"}
 		subtree:add(buffer(0x31, 1), string.format("Channel auto/manual: %02x (%s)", buffer(0x31,1):uint(), x31Map[buffer(0x31,1):uint()]  or "???") )
 	elseif typ==0x03 then
@@ -172,6 +172,7 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x0b, 18), "Device name: "..buffer(0x0b, 18):stringz())
 	subtree:add(buffer(0x1d, 1), string.format("x1d: %02x", buffer(0x1d, 1):uint()) )
 	subtree:add(buffer(0x1e, 2), string.format("x1e: %02x", buffer(0x1e, 2):uint()) )
+	-- This isn't quite right, some setting on the CDJ is now making this output 0x03
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x (1 from Rekordbox, 0 otherwise?)", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
@@ -349,7 +350,8 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- 03 (0011) when track playing, both lamps solid
 		-- 02 Loading or cannot play
 
-		local x7c = subtree:add(buffer(0x7c, 4), string.format("x7c: %08x [always 0x31.2e.32.32]", buffer(0x7c, 4):uint() ) )
+		-- four-character version string
+		local x7c = subtree:add(buffer(0x7c, 4), string.format("Firmware version: %s", buffer(0x7c, 4) ) )
 
 		-- Number of times the device has been master, x2? WHY? What is this?
 		local x86 = subtree:add(buffer(0x86, 2), string.format("x86: %04x", buffer(0x86, 2):uint() ) )
@@ -522,7 +524,7 @@ function djmproto4.dissector(buffer, pinfo, tree)
 
 	subtree:add(buffer(0x0b, 18), "Device name: "..buffer(0x0b, 18):stringz())
 	subtree:add(buffer(0x1d, 2), string.format("x1d: %04x [always null, part of device name?]", buffer(0x1d, 2):uint()) )
-	subtree:add(buffer(0x1f, 2), string.format("x1f: %04x", buffer(0x1f, 2):uint()) )
+	subtree:add(buffer(0x1f, 2), string.format("x1f: %04x [always x0101?]", buffer(0x1f, 2):uint()) )
 
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x [1 from Rekordbox, 0 otherwise?]", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()

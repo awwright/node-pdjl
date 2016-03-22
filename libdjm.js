@@ -253,9 +253,10 @@ DJMDevice.prototype.send0x02 = function send0x02(i, target){
 	var device = this;
 	var m = MACToArr(device.macaddr);
 	var n = IPToArr(device.ipaddr);
-	var chan = device.channel;
-	var x31 = 2; //1=Auto, 2=Manual
-	// If byte 0x0b is set to 0x00 instead of 0x01, this packet fails to get any response. Odd.
+	var chan = device.channel; // `0` for Auto
+	var x31 = 2; // 1=Auto, 2=Manual
+	// This 0x0b byte gets set to 1 if we want to get assigned a channel by the mixer
+	// We won't get any response back if set to 0
 	var bcst =  target ? 0x01 : 0x00 ;
 	var target = target || device.broadcastIP;
 	var b = Buffer([
@@ -399,6 +400,21 @@ DJMDevice.prototype.send1x27 = function send1x27(ip){
 	});
 }
 
+
+DJMDevice.prototype.send2x16 = function send2x16(ip){
+	// 50002 0x16
+	var device = this;
+	var chan = device.channel;
+	var b = Buffer([
+		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x16, n[0], n[1], n[2], n[3], n[4],
+		n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13], n[14], n[15], n[16], n[17], n[18], n[19], 0x01,
+		0x01, 0x01, 0x11, 0x00,
+	]);
+	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
+		device.log('> 2_x16', arguments);
+	});
+}
+
 DJMDevice.prototype.sendDeviceAck = function sendDeviceAck(ip){
 	// 50000 0x05
 	var device = this;
@@ -450,6 +466,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 				step0x04();
 				return;
 			}
+			// The mixer wants us to ask for a channel directly instead of a broadcast
 			device.send0x02(seq, mixerIp);
 			timeout = setTimeout(sendNext, 300);
 			seq++;
