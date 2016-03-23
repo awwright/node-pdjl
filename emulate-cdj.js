@@ -13,41 +13,7 @@ device.broadcastIP = ifaceConf.bcast;
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
-
-var waiting = 0;
-
-function listenUDP(addr, port, fn){
-	var sock = dgram.createSocket("udp4");
-	sock.on("message", function(v, w){
-		//console.log(v);
-		fn(v, w);
-	});
-	sock.on("listening", function () {
-		var address = sock.address();
-		console.log("server listening " +	address.address + ":" + address.port);
-	});
-	sock.bind(port, addr, function onBound(){
-		console.log('bound');
-		sock.setBroadcast(true);
-		doneBind();
-	});
-	waiting++;
-	return sock;
-}
-
-device.sock0 = listenUDP(device.ipaddr, 50000, device.onMsg0.bind(device));
-device.sock0b = listenUDP(device.broadcastIP, 50000, device.onMsg0.bind(device));
-device.sock1 = listenUDP(device.ipaddr, 50001, device.onMsg1.bind(device));
-device.sock1b = listenUDP(device.broadcastIP, 50001, device.onMsg1.bind(device));
-device.sock2 = listenUDP(device.ipaddr, 50002, device.onMsg2.bind(device));
-device.sock2b = listenUDP(device.broadcastIP, 50002, device.onMsg2.bind(device));
-
-function doneBind(){
-	if(--waiting===0){
-		console.log('Starting boot');
-		device.boot();
-	}
-}
+device.connect();
 
 net.createServer(function(socket) {
 	console.log('NEW CONNECTION 12523', socket);
