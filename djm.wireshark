@@ -311,6 +311,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 	elseif typ==0x0a then
 		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+		local x25 = subtree:add(buffer(0x25, 3), string.format("x25: %06x", buffer(0x25, 3):uint()))
 		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (sourceid)", buffer(0x28, 4):uint() ) )
 		local x2f = subtree:add(buffer(0x2c, 4), string.format("x2c: %04x [trackid]", buffer(0x2c, 4):uint() ) )
 		local x33 = subtree:add(buffer(0x33, 1), string.format("Playlist number: %d (0x%02x)", buffer(0x33, 1):uint(), buffer(0x33, 1):uint() ) )
@@ -351,7 +352,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- 02 Loading or cannot play
 
 		-- four-character version string
-		local x7c = subtree:add(buffer(0x7c, 4), string.format("Firmware version: %s", buffer(0x7c, 4) ) )
+		local x7c = subtree:add(buffer(0x7c, 4), string.format("Firmware version: %s", buffer(0x7c, 4):string() ) )
 
 		-- Number of times the device has been master, x2? WHY? What is this?
 		local x86 = subtree:add(buffer(0x86, 2), string.format("x86: %04x", buffer(0x86, 2):uint() ) )
@@ -469,7 +470,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	elseif typ==0x19 then
 		-- Instruction to load track to device
 		subtree:add(buffer(0x24, 4), string.format("x24: %08x", buffer(0x24,4):uint() ) )
-		subtree:add(buffer(0x28, 4), string.format("x28: %08x (Sourceid)", buffer(0x28,4):uint() ) )
+		subtree:add(buffer(0x28, 4), string.format("x28: %08x (Channel/sourceid)", buffer(0x28,4):uint() ) )
 		subtree:add(buffer(0x2c, 4), string.format("x2c: %08x (Trackid)", buffer(0x2c,4):uint() ) )
 		subtree:add(buffer(0x30, 4), string.format("x30: %08x", buffer(0x30,4):uint() ) )
 		subtree:add(buffer(0x34, 4), string.format("x34: %08x", buffer(0x34,4):uint() ) )
