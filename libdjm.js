@@ -299,6 +299,7 @@ DJMDevice.prototype.send0x06 = function send0x06(){
 
 // 0=Start, 1=Stop, 2=none
 DJMDevice.prototype.send1x02 = function send1x02(c){
+	// Send a fader start packet
 	var device = this;
 	var chan = device.channel;
 	var b = Buffer([
