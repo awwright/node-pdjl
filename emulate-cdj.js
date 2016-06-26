@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 var dgram = require("dgram");
 var net = require("net");
-
-var ifaceConf = require('./iface.json');
+var fs = require("fs");
+var ifaceConfFile = process.env.PDJL_CONFIG || 'iface.json';
+console.log('Config: '+ifaceConfFile);
+var ifaceConf = JSON.parse(fs.readFileSync(ifaceConfFile));
 var DJMDevice = require('./libdjm.js').DJMDevice;
 
 var device = new DJMDevice;

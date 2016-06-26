@@ -38,6 +38,7 @@ Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
 }
 
+// Creates network servers and all the other stuff necessary
 DJMDevice.prototype.connect = function connect() {
 	var device = this;
 	var bindIP = null;
