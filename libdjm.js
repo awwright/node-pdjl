@@ -238,6 +238,9 @@ DJMDevice.prototype.send0x00 = function send0x00(i){
 
 
 // 50000 0x02
+// i: an incrementing number for every packet that goes out (usually 1, 2, or 3)
+// target: IP address of mixer, if this packet is not being broadcast, or null if it is
+// channelAssignment: "auto" or "manual"
 DJMDevice.prototype.send0x02 = function send0x02(i, target){
 	var device = this;
 	var m = MACToArr(device.macaddr);

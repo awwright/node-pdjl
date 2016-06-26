@@ -1,7 +1,7 @@
 
 -- This is a Lua script for Wireshark
 -- Call like:
--- wireshark -X lua_script:djm.wireshark
+-- wireshark -X lua_script:djm.wireshark -i eth1 -k
 
 udp_table = DissectorTable.get("udp.port")
 
@@ -129,7 +129,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		
 		subtree:add(buffer(0x24, 1), string.format("Channel: %x", buffer(0x24, 1):uint()))
 		-- CDJ booting up with one mixer on the network with 02(manual) configuration sends x01
-		subtree:add(buffer(0x25, 1), string.format("x25: %x [device type? CDJ sends x01, someone else once sent x03]", buffer(0x25, 1):uint()))
+		subtree:add(buffer(0x25, 1), string.format("x25: %x [device ID?]", buffer(0x25, 1):uint()))
 		subtree:add(buffer(0x26, 6), string.format("MAC: %02x:%02x:%02x:%02x:%02x:%02x",
 			buffer(0x26, 1):uint(), buffer(0x27, 1):uint(), buffer(0x28, 1):uint(),
 			buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(), buffer(0x2b, 1):uint())
@@ -322,6 +322,8 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local x3c = subtree:add(buffer(0x44, 4), string.format("x44: %04x [always 3 ??]", buffer(0x44, 4):uint() ) )
 		local x3c = subtree:add(buffer(0x48, 4), string.format("x48: %04x [1000 if CD, else 0000]", buffer(0x48, 4):uint() ) )
 		local x4c = subtree:add(buffer(0x4c, 12), string.format("Disc id: %08x%08x%08x", buffer(0x4c, 4):uint(), buffer(0x50, 4):uint(), buffer(0x54, 4):uint() ) )
+		local x58 = subtree:add(buffer(0x58, 4), string.format("x58: %08x", buffer(0x58, 4):uint() ) )
+		local x58 = subtree:add(buffer(0x5c, 4), string.format("x5c: %08x", buffer(0x5c, 4):uint() ) )
 		local x66 = subtree:add(buffer(0x66, 1), string.format("Disc ejecting: %02x", buffer(0x66, 1):uint()) )
 
 		-- USB status byte A

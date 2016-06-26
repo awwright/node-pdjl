@@ -15,32 +15,19 @@ console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
 device.connect();
 
-net.createServer(function(socket) {
-	console.log('NEW CONNECTION 12523', socket);
-	socket.on('end', function() {
-		socket.end('I got your message (but didnt read it)\n');
-	});
-	// start the flow of data, discarding it.
-	socket.resume();
-}).listen(12523);
-
-
-net.createServer(function(socket) {
-	console.log('NEW CONNECTION 1053', socket);
-	socket.on('end', function() {
-		socket.end('I got your message (but didnt read it)\n');
-	});
-	// start the flow of data, discarding it.
-	socket.resume();
-}).listen(1053);
-
-net.createServer(function(socket) {
-	console.log('NEW CONNECTION 1051', socket);
-	socket.on('end', function() {
-		socket.end('I got your message (but didnt read it)\n');
-	});
-	// start the flow of data, discarding it.
-	socket.resume();
-}).listen(1051);
-
+function watchTCPPort(port){
+	console.log('Watching TCP '+port);
+	net.createServer(function(socket) {
+		console.log('NEW CONNECTION '+port, socket);
+		socket.on('end', function() {
+			socket.end('I got your message (but didnt read it)\n');
+		});
+		// start the flow of data, discarding it.
+		socket.resume();
+	}).listen(port);
+}
+watchTCPPort(1051);
+watchTCPPort(1053);
+watchTCPPort(1054);
+watchTCPPort(12523);
 
