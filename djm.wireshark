@@ -324,25 +324,27 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local x4c = subtree:add(buffer(0x4c, 12), string.format("Disc id: %08x%08x%08x", buffer(0x4c, 4):uint(), buffer(0x50, 4):uint(), buffer(0x54, 4):uint() ) )
 		local x58 = subtree:add(buffer(0x58, 4), string.format("x58: %08x", buffer(0x58, 4):uint() ) )
 		local x58 = subtree:add(buffer(0x5c, 4), string.format("x5c: %08x", buffer(0x5c, 4):uint() ) )
+		local x58 = subtree:add(buffer(0x60, 4), string.format("x60: %08x", buffer(0x60, 4):uint() ) )
+		local x58 = subtree:add(buffer(0x64, 2), string.format("x64: %04x", buffer(0x64, 4):uint() ) )
 		local x66 = subtree:add(buffer(0x66, 1), string.format("Disc ejecting: %02x", buffer(0x66, 1):uint()) )
 
-		-- USB status byte A
+		-- USB lamp
 		local x6aMap = {[4]="off", [6]="ON"}
 		local x6a = subtree:add(buffer(0x6a, 1), string.format("USB lamp: %02x (%s)", buffer(0x6a, 1):uint(), x6aMap[buffer(0x6a, 1):uint()] or "???" ) )
 
-		-- SD card status byte A
+		-- SD lamp
 		local x6bMap = {[4]="off", [6]="ON"}
 		local x6b = subtree:add(buffer(0x6b, 1), string.format("SD lamp: %02x (%s)", buffer(0x6b, 1):uint(), x6bMap[buffer(0x6b, 1):uint()] or "???" ) )
 
-		-- USB status byte B
+		-- USB status
 		local x6fMap = {[0]="Mounted", "???", "About to eject", "Ejecting", "Not mounted"}
 		local x6f = subtree:add(buffer(0x6f, 1), string.format("USB status: %02x (%s)", buffer(0x6f, 1):uint(), x6fMap[buffer(0x6f, 1):uint()] ) )
 
-		-- SD card status byte B
+		-- SD card status
 		local x73Map = {[0]="Mounted", "???", "About to eject", "Ejecting", "Not mounted"}
 		local x73 = subtree:add(buffer(0x73, 1), string.format("SDCard status: %02x (%s)", buffer(0x73, 1):uint(), x73Map[buffer(0x73, 1):uint()] ) )
 
-		-- Disc status byte B
+		-- Disc status
 		local x76Map = {[0]="Empty", [4]="Mounted"}
 		local x76 = subtree:add(buffer(0x76, 1), string.format("Disc status: %02x (%s)", buffer(0x76, 1):uint(), x76Map[buffer(0x76, 1):uint()] ) )
 

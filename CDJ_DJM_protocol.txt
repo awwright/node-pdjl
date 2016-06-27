@@ -263,3 +263,15 @@ CDJ startup sequence with mixer on network:
 
 
 The packetType=x06 heartbeat/discover packets emitted at 2-second intervals appear to tell other devices about the existance of a mountable filesystem. On a network with one DJM and one CDJ, after the DJM broadcasts this packet, the CDJ attempts to mount the DJM.
+
+
+
+Information about the current track of another device (Link Info) seems to be provided by remote devices to local TCP port 1054
+
+
+
+CDJ track information TCP server test:
+A. Boot up CDJ3
+1. Turn on CDJ2 with CD inside, waiting until CD metadata appears on screen
+2. Hold "Link INfo button" on CDJ3, wait until CDJ2 metadata appears on screen
+3. Kill sniffer

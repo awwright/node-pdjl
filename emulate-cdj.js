@@ -12,6 +12,7 @@ device.channel = ifaceConf.channel || 4;
 device.macaddr = ifaceConf.mac;
 device.ipaddr = ifaceConf.ip;
 device.broadcastIP = ifaceConf.bcast;
+device.cdjMediaSource = 'cd';
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
@@ -32,4 +33,11 @@ watchTCPPort(1051);
 watchTCPPort(1053);
 watchTCPPort(1054);
 watchTCPPort(12523);
+
+
+// 1. Boot normally, wait 3 more seconds
+// 2. Load track off "SD card" and play it
+// 3. become master
+// 4. CDJ3 queries us for track information
+// 5. CDJ3 queries us for the track data and position and tries to play it in sync
 
