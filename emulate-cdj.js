@@ -18,22 +18,59 @@ console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
 device.connect();
 
+
+net.createServer(function(socket) {
+	console.log('NEW CONNECTION '+socket.localPort);
+	socket.on('data', function(data) {
+		console.log('Data: ', data);
+		// This is the number of another port to connect to... why?
+		// Send out port number 1051
+		socket.write(Buffer([0x04, 0x1b]));
+	});
+	socket.on('end', function() {
+		console.log('Connection closed');
+	});
+	// start the flow of data, discarding it.
+	socket.resume();
+}).listen(12523);
+
+net.createServer(function(socket) {
+	console.log('NEW CONNECTION '+socket.localPort);
+	var state = socket.state = {};
+	state.length = 0;
+	state.initialized = 0;
+	socket.on('data', function(data) {
+		state.length += data.length;
+		console.log('Data: ', data);
+		if(state.initialized===0){
+			socket.write(data);
+			state.initialized = 1;
+		}
+	});
+	socket.on('end', function() {
+		console.log('Connection closed');
+	});
+	// start the flow of data, discarding it.
+	socket.resume();
+}).listen(1051);
+
+
 function watchTCPPort(port){
 	console.log('Watching TCP '+port);
 	net.createServer(function(socket) {
-		console.log('NEW CONNECTION '+port, socket);
+		console.log('NEW CONNECTION '+socket.localPort);
+		socket.on('data', function(data) {
+		console.log('Data: ', data);
+		});
 		socket.on('end', function() {
-			socket.end('I got your message (but didnt read it)\n');
+			console.log('Connection closed');
 		});
 		// start the flow of data, discarding it.
 		socket.resume();
 	}).listen(port);
 }
-watchTCPPort(1051);
 watchTCPPort(1053);
 watchTCPPort(1054);
-watchTCPPort(12523);
-
 
 // 1. Boot normally, wait 3 more seconds
 // 2. Load track off "SD card" and play it
