@@ -51,7 +51,7 @@ Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
 }
 
-DJMDevice.prototype.configureCDJ2000NXS = function configureCDJ2000NXS() {
+DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	var device = this;
 	device.hardwareMode = 'cdj-2000nxs';
 	device.modePlayer = true;
@@ -60,7 +60,7 @@ DJMDevice.prototype.configureCDJ2000NXS = function configureCDJ2000NXS() {
 	device.hasSD = false;
 	device.hasUSB = false;
 }
-DJMDevice.prototype.configureRekordbox = function configureRekordbox() {
+DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	var device = this;
 	device.hardwareMode = 'rekordbox';
 	device.modePlayer = false;
