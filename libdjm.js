@@ -12,7 +12,8 @@ var DJMDeviceDefaults = {
 	mixerIP: '192.168.0.90',
 	//broadcastIP: '169.254.255.255',
 	//mixerIP: '169.254.101.168',
-	devices: {},
+	devices: {}, // Keeps state about devices currently on network
+	// Local device setup information
 	modePlayer: false,
 	modeMixer: false,
 	modeLink: true,
@@ -24,6 +25,10 @@ var DJMDeviceDefaults = {
 	hardwareMode: 'cdj-2000nxs', // What kind of device to emulate
 	cdjMediaSource: 'none', // {none,cd,sd,usb,link}
 	cdjMediaState: 'play', // {cue,pause,play}
+	// Callbacks
+	onDeviceChange: null,
+	onTrackChangeDetect: null,
+	onTrackChangeMetadata: null,
 };
 
 module.exports.DJMDevice = DJMDevice;
