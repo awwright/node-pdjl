@@ -23,7 +23,10 @@ var DJMDeviceDefaults = {
 	firmwareVersion: '1.25',
 	useBeatinfoPacket: false, // send out the 1x28 packet on every new beat?
 	hardwareMode: 'cdj-2000nxs', // What kind of device to emulate
-	cdjMediaSource: 'none', // {none,cd,sd,usb,link}
+	hasCD: false,
+	hasSD: false,
+	hasUSB: false,
+	cdjMediaSource: 'none', // The source of the currently playing track {none,cd,sd,usb,link}
 	cdjMediaState: 'play', // {cue,pause,play}
 	// Callbacks
 	onDeviceChange: null,
@@ -46,6 +49,25 @@ function MACToArr(s){
 }
 Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
+}
+
+DJMDevice.prototype.configureCDJ2000NXS = function configureCDJ2000NXS() {
+	var device = this;
+	device.hardwareMode = 'cdj-2000nxs';
+	device.modePlayer = true;
+	device.modeMixer = false;
+	device.hasCD = false;
+	device.hasSD = false;
+	device.hasUSB = false;
+}
+DJMDevice.prototype.configureRekordbox = function configureRekordbox() {
+	var device = this;
+	device.hardwareMode = 'rekordbox';
+	device.modePlayer = false;
+	device.modeMixer = false;
+	device.hasCD = false;
+	device.hasSD = false;
+	device.hasUSB = false;
 }
 
 // Creates network servers and all the other stuff necessary
