@@ -58,7 +58,7 @@ net.createServer(function(socket) {
 			return;
 		}
 		var magic_header = new Buffer([0x11, 0x87, 0x23, 0x49, 0xae, 0x11]);
-		if(data.slice(0,6).compare(magic_header)! =0){
+		if(data.slice(0,6).compare(magic_header)!=0){
 			console.error(magic_header);
 			console.error(data);
 			throw new Error('Invalid checksum header?');
