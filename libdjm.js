@@ -595,7 +595,7 @@ DJMDevice.prototype.send2x11 = function send2x11(ip){
 	// 50002 0x16
 	var device = this;
 	var chan = device.channel;
-	var b = Buffer(128);
+	var b = Buffer(296);
 	b.fill();
 	for(var i=0; i<10; i++) b[i] = DJMDevice.magic[i];
 	b[0xa] = 0x11;
@@ -612,6 +612,7 @@ DJMDevice.prototype.send2x11 = function send2x11(ip){
 	b[0x27] = 0;
 	// Copy hostname (UTF-16BE)
 	for(var i=0; i<25; i++) b.writeUInt16BE(device.hostname.charCodeAt(i)||0, 0x28+i*2);
+	// End of packet
 	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
 		device.log('> 2_11', arguments);
 	});

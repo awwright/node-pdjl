@@ -453,17 +453,17 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- Sent by CDJ to Rekordbox after first 0_06 packet with channel number>0x10
 		-- Seems to be asking for "hey what can you export to me"
 		-- Zero payload
-		pinfo.cols.info = string.format("2_10", measure, beat)
+		pinfo.cols.info = string.format("2_10 Can you export?", measure, beat)
 
 	elseif typ==0x11 then
 		-- Seems to be a reply to 2_10
 		-- The CDJ will attempt to NFS mount the sender after receiving this packet
-		pinfo.cols.info = string.format("Reply with info", measure, beat)
+		pinfo.cols.info = string.format("2_11 Yeah I can export", measure, beat)
 		subtree:add(buffer(0x24, 1), string.format("Channel?: %02x", buffer(0x24,1):uint() ) )
 		subtree:add(buffer(0x25, 1), string.format("x25: %02x", buffer(0x25,1):uint() ) )
 		subtree:add(buffer(0x26, 1), string.format("x26: %02x", buffer(0x26,1):uint() ) )
 		subtree:add(buffer(0x27, 1), string.format("x27: %02x", buffer(0x27,1):uint() ) )
-		subtree:add(buffer(0x28, 64), string.format("Hostname: %s", buffer(0x28,64):ustringz() ) )
+		subtree:add(buffer(0x28, 256), string.format("Hostname: %s", buffer(0x28,256):ustringz() ) )
 
 	elseif typ==0x16 then
 		-- Sent from Rekordbox to CDJ
