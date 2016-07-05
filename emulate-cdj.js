@@ -72,13 +72,14 @@ net.createServer(function(socket) {
 			0x11, 0x00, 0x00, 0x00, 0x03 ]);
 		if(data.compare(incoming_hello_1)==0){
 			console.log('Incoming data matches incoming_hello_1');
+			var chan = device.channel;
 			var response_hello_1 = new Buffer([
 				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,
 				0xff, 0xfe, 0x10, 0x40, 0x00, 0x0f, 0x02, 0x14,
 				0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,
 				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 				0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00,
-				0x00, 0x02 ]);
+				0x00, chan ]);
 			socket.write(response_hello_1);
 			return;
 		}
@@ -259,6 +260,32 @@ net.createServer(function(socket) {
 			socket.write(response_request);
 			return;
 		}
+		// Now let's try and figure out how to respond to a request for "Browse"
+		// Included in the response seems to be:
+		// - The first six or so menu items - only the ones being displayed
+		// - The total number of menu items that can be scrolled through
+		// - The fancy square brackets seem to be U+FFFA and U+FFFB
+		// Album art and contents of submenus (that may be previewed) is acquired through a separate request
+		// Responses are variable length, but where is the length field (if any)
+		// Menu entries seem to be variable-length
+		// - "ARTIST" (6) - 9
+		// - "ALBUM" (5) - 8
+		// - "TRACK" (5) - 8
+		// - "KEY" (3) - 6
+		// - "PLAYLIST" (8) - b
+		// - "HISTORY" (7) - a
+		// If we do this sequence:
+		// 1. Boot up Rekordbox
+		// 2. Press "Rekordbox" button and pull up browse
+		// 3. Press "Link" on Rekordbox
+		// Then we see the following requests go over the wire:
+		// 1. 5-byte handshake
+		// 2. [11 87 23 49 ae 11 ff ff  ff fe 10 00 00 0f 01 14] that seems to contain the sender's channel number, and is responded with the server's channel number
+		// 3. [11 87 23 49 ae 11 03 80  00 9c 10 40 00 0f 02 14] that preceeds a menu request
+		// 4. [11 87 23 49 ae 11 03 80  00 9d 10 30 00 0f 06 14] that is the actual request, responds with 6 menu items
+		// 5. [11 87 23 49 ae 11 03 80  00 9e 10 10 02 0f 02 14] that preceeds a menu request
+		// 6. [11 87 23 49 ae 11 03 80  00 9f 10 30 00 0f 06 14] that is the actual request for the "ARTIST" submenu
+		throw new Error('Unknown incoming data/request');
 	});
 	socket.on('end', function() {
 		console.log('Connection closed');
@@ -267,23 +294,6 @@ net.createServer(function(socket) {
 	socket.resume();
 }).listen(1051);
 
-
-function watchTCPPort(port){
-	console.log('Watching TCP '+port);
-	net.createServer(function(socket) {
-		console.log('NEW CONNECTION '+socket.localPort);
-		socket.on('data', function(data) {
-		console.log('Data: ', data);
-		});
-		socket.on('end', function() {
-			console.log('Connection closed');
-		});
-		// start the flow of data, discarding it.
-		socket.resume();
-	}).listen(port);
-}
-watchTCPPort(1053);
-watchTCPPort(1054);
 
 // 1. Boot normally, wait 3 more seconds
 // 2. Load track off "SD card" and play it
