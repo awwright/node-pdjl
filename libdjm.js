@@ -13,7 +13,7 @@ var DJMDeviceDefaults = {
 	//broadcastIP: '169.254.255.255',
 	//mixerIP: '169.254.101.168',
 	devices: {}, // Keeps state about devices currently on network
-	// Local device setup information
+	// Device capability information
 	modePlayer: false,
 	modeMixer: false,
 	modeLink: true,
@@ -22,12 +22,17 @@ var DJMDeviceDefaults = {
 	beatinfoPacketId: 0,
 	firmwareVersion: '1.25', // Four bytes exactly
 	deviceTypeName: 'CDJ-2000nexus', // 20 bytes max, 7-bit ASCII
-	useBeatinfoPacket: false, // send out the 1x28 packet on every new beat?
+	deviceType8: 0x02, // 1=DJM, 2=CDJ, 3=rekordbox
 	hardwareMode: 'cdj-2000nxs', // What kind of device to emulate
 	useBoot00a: true,
+	useBoot004: true,
+	useBeat128: false,
+	useBeat20a: false,
+	// Device state information
 	hasCD: false,
 	hasSD: false,
 	hasUSB: false,
+	useBeatinfoPacket: false, // Is the current track beat-analyzed?
 	cdjMediaSource: 'none', // The source of the currently playing track {none,cd,sd,usb,link}
 	cdjMediaState: 'play', // {cue,pause,play}
 	// Callbacks
@@ -53,13 +58,34 @@ Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
 }
 
+DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
+	var device = this;
+	device.hardwareMode = 'djm-2000nxs';
+	//device.firmwareVersion = '    ';
+	device.deviceTypeName = 'DJM-2000nexus';
+	device.deviceType8 = 1;
+	device.useBoot00a = true;
+	device.useBoot004 = true;
+	device.useBeat128 = false;
+	device.useBeat20a = false;
+	device.modePlayer = false;
+	device.modeMixer = true;
+	device.hasCD = false;
+	device.hasSD = false;
+	device.hasUSB = false;
+	// This does have some sort of file it can offer over the network
+	// But need to create an option to expose it/figure out how it's exposed
+}
 DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	var device = this;
 	device.hardwareMode = 'cdj-2000nxs';
 	device.firmwareVersion = '1.25';
 	device.deviceTypeName = 'CDJ-2000nexus';
+	device.deviceType8 = 2;
 	device.useBoot00a = true;
 	device.useBoot004 = true;
+	device.useBeat128 = true;
+	device.useBeat20a = true;
 	device.modePlayer = true;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -70,8 +96,11 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	var device = this;
 	device.hardwareMode = 'rekordbox';
 	device.deviceTypeName = 'rekordbox';
+	device.deviceType8 = 3;
 	device.useBoot00a = false;
 	device.useBoot004 = false;
+	device.useBeat128 = false;
+	device.useBeat20a = false;
 	device.modePlayer = false;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -354,6 +383,10 @@ DJMDevice.prototype.send0x06 = function send0x06(){
 		ndev, 0x00, 0x00, 0x00, 0x01, 0x00
 	]);
 	b.write(device.deviceTypeNameBuf(), 0x0c, 0x0c+20);
+	b.writeUInt8(device.deviceType8, 0x21);
+	if(device.hardwareMode=='rekordbox'){
+		b.writeUInt8(8, 0x35); // No clue what this does yet
+	}
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
 		device.log('> 0_x06');
 	});
@@ -376,6 +409,7 @@ DJMDevice.prototype.send1x02 = function send1x02(c){
 	});
 }
 
+// This specifically talks about the device-to-device 2_0a packet
 DJMDevice.prototype.emitBeatinfo = function emitBeatinfo(){
 	var device = this;
 	for(var n in device.devices){
@@ -649,7 +683,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 		sendNext();
 	}
 }
-// Sets up the packet sending services
+// (re-)Sets up the packet sending services
 DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	var device = this;
 	console.log('Configure doDisoverable', new Error().stack);
@@ -662,18 +696,22 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 
 	if(device.timerSend1x28) clearInterval(device.timerSend1x28);
 	// every beat
-	device.timerSend1x28 = setInterval(function(){
-		if(device.useBeatinfoPacket){
-			device.send1x28(device.beatinfoBeat);
-		}
-		++device.beatinfoBeat;
-	}, parseInt(60000/device.beatinfoBPM));
+	if(device.useBeat128){
+		device.timerSend1x28 = setInterval(function(){
+			if(device.useBeatinfoPacket){
+				device.send1x28(device.beatinfoBeat);
+			}
+			++device.beatinfoBeat;
+		}, parseInt(60000/device.beatinfoBPM));
+	}
 
 	if(device.timerEmitBeatInfo) clearInterval(device.timerEmitBeatInfo);
 	// 10 times a second
-	device.timerEmitBeatInfo = setInterval(function(){
-		device.emitBeatinfo();
-	}, 100);
+	if(device.useBeat20a){
+		device.timerEmitBeatInfo = setInterval(function(){
+			device.emitBeatinfo();
+		}, 100);
+	}
 }
 
 DJMDevice.prototype.boot = function boot(){
