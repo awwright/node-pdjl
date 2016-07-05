@@ -20,9 +20,11 @@ var DJMDeviceDefaults = {
 	beatinfoBeat: 0,
 	beatinfoBPM: 120,
 	beatinfoPacketId: 0,
-	firmwareVersion: '1.25',
+	firmwareVersion: '1.25', // Four bytes exactly
+	deviceTypeName: 'CDJ-2000nexus', // 20 bytes max, 7-bit ASCII
 	useBeatinfoPacket: false, // send out the 1x28 packet on every new beat?
 	hardwareMode: 'cdj-2000nxs', // What kind of device to emulate
+	useBoot00a: true,
 	hasCD: false,
 	hasSD: false,
 	hasUSB: false,
@@ -54,6 +56,9 @@ Number.prototype.toByteString = function toByteString(n){
 DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	var device = this;
 	device.hardwareMode = 'cdj-2000nxs';
+	device.firmwareVersion = '1.25';
+	device.deviceTypeName = 'CDJ-2000nexus';
+	device.useBoot00a = true;
 	device.modePlayer = true;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -63,6 +68,8 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	var device = this;
 	device.hardwareMode = 'rekordbox';
+	device.deviceTypeName = 'rekordbox';
+	device.useBoot00a = false;
 	device.modePlayer = false;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -642,9 +649,13 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 }
 
 DJMDevice.prototype.boot = function boot(){
+	var device = this;
 	var wait = 300;
-	setTimeout(this.send0x0a.bind(this), 0*wait);
-	setTimeout(this.send0x0a.bind(this), 1*wait);
-	setTimeout(this.send0x0a.bind(this), 2*wait);
-	setTimeout(this.doBootup.bind(this), 3*wait);
+	var i = 0;
+	if(device.useBoot00a){
+		setTimeout(this.send0x0a.bind(this), (i++)*wait);
+		setTimeout(this.send0x0a.bind(this), (i++)*wait);
+		setTimeout(this.send0x0a.bind(this), (i++)*wait);
+	}
+	setTimeout(this.doBootup.bind(this), i*wait);
 }
