@@ -471,8 +471,9 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	elseif typ==0x16 then
 		-- Sent from Rekordbox to CDJ
 		-- Seems to be reply to a 0_x06 packet from device
+		-- Causes CDJ to try a portmap then an export of the sending device
 		-- Zero payload
-		pinfo.cols.info = string.format("2_16", measure, beat)
+		pinfo.cols.info = string.format("2_16 Mount plz", measure, beat)
 
 	elseif typ==0x19 then
 		-- Instruction to load track to device

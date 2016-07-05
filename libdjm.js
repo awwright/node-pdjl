@@ -37,6 +37,7 @@ var DJMDeviceDefaults = {
 	hasSD: false,
 	hasUSB: false,
 	haveBeatinfo: false, // Is the current track beat-analyzed?
+	haveSent216: false,
 	cdjMediaSource: 'none', // The source of the currently playing track {none,cd,sd,usb,link}
 	cdjMediaState: 'play', // {cue,pause,play}
 	// Callbacks
@@ -265,10 +266,12 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		// A rekordbox-specific packet it looks like, send 2_11
 		setTimeout(function(){
 			device.send2x11(rinfo.address);
-		}, 200)
+			device.send2x16(rinfo.address);
+			device.haveSent216 = true;
+		}, 200);
 		setTimeout(function(){
 			device.send2x16(rinfo.address);
-		}, 400)
+		}, 5000);
 	}else if(type==0x29){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
 		var data = {
@@ -623,6 +626,7 @@ DJMDevice.prototype.send1x28 = function send1x28(i){
 
 DJMDevice.prototype.send2x11 = function send2x11(ip){
 	// 50002 0x11
+	// The CDJ will send its first portmap request to rekordbox in response to this packet
 	var device = this;
 	var chan = device.channel;
 	var b = Buffer(296);
@@ -650,11 +654,12 @@ DJMDevice.prototype.send2x11 = function send2x11(ip){
 
 DJMDevice.prototype.send2x16 = function send2x16(ip){
 	// 50002 0x16
+	// This packet causes the CDJ to try to mount the NFS volume
 	var device = this;
 	var chan = device.channel;
 	var b = Buffer(0x30);
 	b.fill();
-	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	for(var i=0; i<10; i++) b[i] = DJMDevice.magic[i];
 	b[0xa] = 0x16; // 2_16 type indicator
 	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
 	b[0x1f] = 0x01;
@@ -668,11 +673,12 @@ DJMDevice.prototype.send2x16 = function send2x16(ip){
 
 DJMDevice.prototype.send2x29 = function send2x29(){
 	// 50002 0x29
+	// The CDJ will send a second portmap request to rekordbox in response to this packet
 	var device = this;
 	var chan = device.channel;
 	var b = Buffer(0x38);
 	b.fill();
-	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	for(var i=0; i<10; i++) b[i] = DJMDevice.magic[i];
 	b[0xa] = 0x29; // type indicator
 	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
 	b[0x1f] = 0x01;
@@ -817,7 +823,7 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	if(device.timerSend2x29) clearInterval();
 	if(device.useBeat229){
 		device.timerSend2x29 = setInterval(function(){
-			device.send2x29();
+			if(device.haveSent216) device.send2x29();
 		}, 100);
 	}
 }
