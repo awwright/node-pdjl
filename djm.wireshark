@@ -60,8 +60,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 	-- This following packet is x01 if being asked directly to the mixer, 0x00 if broadcast
 	subtree:add(buffer(0x0b, 1), string.format("Query channel from mixer: %s", tostring(buffer(0x0b, 1)) ))
-	subtree:add(buffer(0x0c, 18), "Device name: "..buffer(0x0c, 18):stringz())
-	subtree:add(buffer(0x1e, 2), string.format("x1e: %04x (always nil, device name?)", buffer(0x1e, 2):uint()) )
+	subtree:add(buffer(0x0c, 20), "Device name: "..buffer(0x0c, 20):stringz())
 	local channel = buffer(0x20, 2):uint()
 	subtree:add(buffer(0x20, 2), string.format("x20: %04x (0101 from DJM, 0102 from CDJ, 0103 from Rekordbox)", channel))
 	subtree:add(buffer(0x22, 2), string.format("Length: %d (%s)", buffer(0x22, 2):uint(), (buffer(0x22, 2):uint()==buffer:len() and 'good' or 'bad') ) )
@@ -169,7 +168,7 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	local subtree = tree:add(djmproto1, buffer(), "XDJ/CDJ/DJM Data")
 	subtree:add(buffer(0x00, 10), string.format("Magic: %s (%s)", tostring(buffer(0x00, 10)), tostring(buffer(0x00, 10))=='5173707431576d4a4f4c' and 'good' or 'bad' ))
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
-	subtree:add(buffer(0x0b, 18), "Device name: "..buffer(0x0b, 18):stringz())
+	subtree:add(buffer(0x0b, 20), "Device name: "..buffer(0x0b, 20):stringz())
 	subtree:add(buffer(0x1d, 1), string.format("x1d: %02x", buffer(0x1d, 1):uint()) )
 	subtree:add(buffer(0x1e, 2), string.format("x1e: %02x", buffer(0x1e, 2):uint()) )
 	-- This isn't quite right, some setting on the CDJ is now making this output 0x03
@@ -277,8 +276,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x00, 10), string.format("Magic: %s (%s)", tostring(buffer(0x00, 10)), tostring(buffer(0x00, 10))=='5173707431576d4a4f4c' and 'good' or 'bad' ))
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 
-	subtree:add(buffer(0x0b, 18), "Device name: "..buffer(0x0b, 18):stringz())
-	subtree:add(buffer(0x1d, 2), string.format("x1d: %04x [always null, part of device name?]", buffer(0x1d, 2):uint()) )
+	subtree:add(buffer(0x0b, 20), "Device name: "..buffer(0x0b, 20):stringz())
 	subtree:add(buffer(0x1f, 2), string.format("x1f: %04x", buffer(0x1f, 2):uint()) )
 
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x [1 from Rekordbox, 0 otherwise?]", buffer(0x20, 1):uint()))
@@ -527,8 +525,7 @@ function djmproto4.dissector(buffer, pinfo, tree)
 	pinfo.cols.protocol = string.format("DJ4_%02x", typ)
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 
-	subtree:add(buffer(0x0b, 18), "Device name: "..buffer(0x0b, 18):stringz())
-	subtree:add(buffer(0x1d, 2), string.format("x1d: %04x [always null, part of device name?]", buffer(0x1d, 2):uint()) )
+	subtree:add(buffer(0x0b, 20), "Device name: "..buffer(0x0b, 20):stringz())
 	subtree:add(buffer(0x1f, 2), string.format("x1f: %04x [always x0101?]", buffer(0x1f, 2):uint()) )
 
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x [1 from Rekordbox, 0 otherwise?]", buffer(0x20, 1):uint()))
@@ -544,7 +541,7 @@ function djmproto4.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0x29, 1), string.format("x29: %02x [last byte, always 0x11?]", buffer(0x29, 1):uint()) )
 	elseif typ==0x1e then
 		subtree:add(buffer(0x28, 1), string.format("Request Link audio stream: %02x", buffer(0x28, 1):uint()) )
-		subtree:add(buffer(0x29, 1), string.format("x29: %02x [last byte, always 0x11?]", buffer(0x29, 1):uint()) )
+		subtree:add(buffer(0x29, 1), string.format("x29: %02x [last byte, always 0x11? chan id?]", buffer(0x29, 1):uint()) )
 	else
 		pinfo.cols.info = string.format("Unknown type 0x%02x", typ)
 	end
