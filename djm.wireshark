@@ -286,10 +286,12 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
 
 	if typ==0x05 then
-		-- Sent by CDJ when rekordbox connects
+		-- Sent by CDJ when rekordbox connects after a successful NFS mount
 		subtree:add(buffer(0x24, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x24,1):uint(), buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint()) )
 		subtree:add(buffer(0x28, 4), string.format("Remote channel: %08x", buffer(0x28,4):uint() ) )
 		subtree:add(buffer(0x2c, 4), string.format("Remote source: %08x [2=SD, 3=USB, 4=Software]", buffer(0x2c,4):uint() ) )
+		pinfo.cols.info = string.format("2_05 What about your volumes?")
+
 
 	elseif typ==0x06 then
 		-- rekordbox replies to 0_x05 packet with this
@@ -305,6 +307,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0xae, 2), string.format("Number of playlists: %d", buffer(0xae,2):uint() ) )
 		subtree:add(buffer(0xb0, 8), string.format("Total size: %d MB", buffer(0xb2,4):uint()/1000000*0x10000 ) )
 		subtree:add(buffer(0xb8, 8), string.format("Free size: %d MB", buffer(0xba,4):uint()/1000000*0x10000 ) )
+		pinfo.cols.info = string.format("2_06 Yea I got volumes")
 
 
 	elseif typ==0x0a then

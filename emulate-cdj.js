@@ -8,8 +8,10 @@ var ifaceConf = JSON.parse(fs.readFileSync(ifaceConfFile));
 var DJMDevice = require('./libdjm.js').DJMDevice;
 
 var device = new DJMDevice;
-device.setCofigureCDJ2000NXS();
+//device.setCofigureCDJ2000NXS();
+device.setConfigureRekordbox();
 device.channel = ifaceConf.channel || 4;
+device.channel = 0x11;
 device.macaddr = ifaceConf.mac;
 device.ipaddr = ifaceConf.ip;
 device.broadcastIP = ifaceConf.bcast;

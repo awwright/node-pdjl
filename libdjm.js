@@ -29,6 +29,7 @@ var DJMDeviceDefaults = {
 	useBoot004: true,
 	useBeat128: false,
 	useBeat20a: false,
+	useBeat229: false,
 	// Device configuration information
 	hostname: 'localhost',
 	// Device state information
@@ -73,6 +74,7 @@ DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	device.useBoot004 = true;
 	device.useBeat128 = false;
 	device.useBeat20a = false;
+	device.useBeat229 = false; // check this
 	device.modePlayer = false;
 	device.modeMixer = true;
 	device.hasCD = false;
@@ -91,6 +93,7 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	device.useBoot004 = true;
 	device.useBeat128 = true;
 	device.useBeat20a = true;
+	device.useBeat229 = false;
 	device.modePlayer = true;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -106,6 +109,7 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	device.useBoot004 = false;
 	device.useBeat128 = false;
 	device.useBeat20a = false;
+	device.useBeat229 = true;
 	device.modePlayer = false;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -445,6 +449,29 @@ DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 	var f = device.firmwareVersion;
 	var t = [0x00, 0x10, 0x00, 0x00]; // Track tempo = 100%
 	var p = [(pid>>24)&0xff, (pid>>16)&0xff, (pid>>8)&0xff, pid&0xff]; // Packet id
+	// A blank packet with no track looks like this:
+	//0000   51 73 70 74 31 57 6d 4a 4f 4c 0a 43 44 4a 2d 32
+	//0010   30 30 30 6e 65 78 75 73 00 00 00 00 00 00 00 01
+	//0020   03 02 00 b0 02 00 00 00 00 00 00 00 00 00 00 00
+	//0030   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	//0040   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	//0050   00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+	//0060   00 00 00 00 00 00 00 00 01 00 04 06 00 00 00 04
+	//0070   00 00 00 00 00 02 00 00 00 00 00 00 31 2e 32 35
+	//0080   00 00 00 00 00 00 00 01 00 84 0a 7e 00 10 00 00
+	//0090   7f ff ff ff 7f ff ff ff 00 00 00 00 00 00 00 ff
+	//00a0   ff ff ff ff 01 ff 00 00 00 00 00 00 00 00 00 00
+	//00b0   00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00
+	//00c0   00 10 00 00 00 00 00 00 00 00 00 09 0f 00 00 00
+	//00d0   00 00 00 00
+	// A packet playing a CD looks like:
+	//0070   00 00 00 04 00 00 00 00 00 00 00 00 31 2e 32 35
+	//0080   00 00 00 00 00 00 00 02 00 84 ff 7e 00 10 00 00
+	//0090   7f ff ff ff 7f ff ff ff 00 00 00 00 00 00 00 ff
+	//00a0   ff ff ff ff 01 ff 00 00 00 00 00 00 00 00 00 00
+	//00b0   00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00
+	//00c0   00 10 00 00 00 00 00 00 00 00 21 eb 0f 00 00 00
+	//00d0   00 00 00 00
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
@@ -595,7 +622,7 @@ DJMDevice.prototype.send1x28 = function send1x28(i){
 
 
 DJMDevice.prototype.send2x11 = function send2x11(ip){
-	// 50002 0x16
+	// 50002 0x11
 	var device = this;
 	var chan = device.channel;
 	var b = Buffer(296);
@@ -636,6 +663,34 @@ DJMDevice.prototype.send2x16 = function send2x16(ip){
 	// The rest of the packet seems to be zeros, even the "Length" field
 	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
 		device.log('> 2_16', arguments);
+	});
+}
+
+DJMDevice.prototype.send2x29 = function send2x29(){
+	// 50002 0x29
+	var device = this;
+	var chan = device.channel;
+	var b = Buffer(0x38);
+	b.fill();
+	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	b[0xa] = 0x29; // type indicator
+	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	b[0x1f] = 0x01;
+	b[0x20] = (device.hardwareMode=='rekordbox' ? 0x01 : 0x00);
+	b[0x21] = device.channel;
+	// What typically seems to be the length is... incorrect
+	b[0x22] = 0; // length[0]
+	b[0x23] = 0x38; // length[1]
+	b[0x24] = device.channel;
+	// This is probably all track stuff... but these values are taken from Rekordbox
+	b[0x27] = 0xc0;
+	b[0x29] = 0x10;
+	b[0x31] = 0x10;
+	b[0x35] = 0x09;
+	b[0x36] = 0xff;
+	b[0x37] = 0; // Current beat
+	device.sock2.send(b, 0, b.length, 50002, device.broadcastIP, function(e){
+		device.log('> 2_29', arguments);
 	});
 }
 
@@ -756,6 +811,13 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	if(device.useBeat20a){
 		device.timerEmitBeatInfo = setInterval(function(){
 			device.emitBeatinfo();
+		}, 100);
+	}
+
+	if(device.timerSend2x29) clearInterval();
+	if(device.useBeat229){
+		device.timerSend2x29 = setInterval(function(){
+			device.send2x29();
 		}, 100);
 	}
 }
