@@ -262,6 +262,9 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		setTimeout(function(){
 			device.send2x11(rinfo.address);
 		}, 200)
+		setTimeout(function(){
+			device.send2x16(rinfo.address);
+		}, 400)
 	}else if(type==0x29){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
 		var data = {
@@ -618,16 +621,19 @@ DJMDevice.prototype.send2x11 = function send2x11(ip){
 	});
 }
 
-
 DJMDevice.prototype.send2x16 = function send2x16(ip){
 	// 50002 0x16
 	var device = this;
 	var chan = device.channel;
-	var b = Buffer([
-		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x16, n[0], n[1], n[2], n[3], n[4],
-		n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13], n[14], n[15], n[16], n[17], n[18], n[19], 0x01,
-		0x01, 0x01, 0x11, 0x00,
-	]);
+	var b = Buffer(0x30);
+	b.fill();
+	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	b[0xa] = 0x16; // 2_16 type indicator
+	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	b[0x1f] = 0x01;
+	b[0x20] = (device.hardwareMode=='rekordbox' ? 0x01 : 0x00);
+	b[0x21] = device.channel;
+	// The rest of the packet seems to be zeros, even the "Length" field
 	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
 		device.log('> 2_16', arguments);
 	});
