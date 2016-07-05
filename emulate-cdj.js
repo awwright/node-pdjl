@@ -13,6 +13,7 @@ device.channel = ifaceConf.channel || 4;
 device.macaddr = ifaceConf.mac;
 device.ipaddr = ifaceConf.ip;
 device.broadcastIP = ifaceConf.bcast;
+device.hostname = 'Bostons-Mac-Pro';
 device.cdjMediaSource = 'cd';
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);

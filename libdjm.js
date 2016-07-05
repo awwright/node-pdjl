@@ -3,6 +3,7 @@ var dgram = require("dgram");
 var net = require("net");
 
 var DJMDeviceDefaults = {
+	// Generic configuration information
 	channel: 4,
 	macaddr: '00:00:00:00:00:00',
 	ipaddr: '10.10.10.10',
@@ -28,11 +29,13 @@ var DJMDeviceDefaults = {
 	useBoot004: true,
 	useBeat128: false,
 	useBeat20a: false,
+	// Device configuration information
+	hostname: 'localhost',
 	// Device state information
 	hasCD: false,
 	hasSD: false,
 	hasUSB: false,
-	useBeatinfoPacket: false, // Is the current track beat-analyzed?
+	haveBeatinfo: false, // Is the current track beat-analyzed?
 	cdjMediaSource: 'none', // The source of the currently playing track {none,cd,sd,usb,link}
 	cdjMediaState: 'play', // {cue,pause,play}
 	// Callbacks
@@ -57,6 +60,8 @@ function MACToArr(s){
 Number.prototype.toByteString = function toByteString(n){
 	return ('0000'+this.toString(16)).substr(-(n||2));
 }
+
+DJMDevice.magic = [0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c];
 
 DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	var device = this;
@@ -252,6 +257,11 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			device.log('< 2_x0a New master on ch.'+newMasterChannel.toString(16), msg[0x89].toByteString(), msg[0x9e].toByteString());
 			device.handleNewMaster(newMasterChannel);
 		}
+	}else if(type==0x10){
+		// A rekordbox-specific packet it looks like, send 2_11
+		setTimeout(function(){
+			device.send2x11(rinfo.address);
+		}, 200)
 	}else if(type==0x29){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
 		var data = {
@@ -376,15 +386,17 @@ DJMDevice.prototype.send0x06 = function send0x06(){
 	var ndev = Object.keys(device.devices).length;
 	// What is this?
 	var x25 = 1;
+	var x34 = (device.hardwareMode=='rekordbox') ? 0x04 : 0x01 ; // Rekordbox sends 0x04 for some reason
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x01, 0x02, 0x00, 0x36, chan, x25,  m[0], m[1], m[2], m[3], m[4], m[5], n[0], n[1], n[2], n[3],
-		ndev, 0x00, 0x00, 0x00, 0x01, 0x00
+		ndev, 0x00, 0x00, 0x00, x34,  0x00
 	]);
 	b.write(device.deviceTypeNameBuf(), 0x0c, 0x0c+20);
 	b.writeUInt8(device.deviceType8, 0x21);
 	if(device.hardwareMode=='rekordbox'){
+		b.writeUInt8(1, 0x31); // No clue what this does yet
 		b.writeUInt8(8, 0x35); // No clue what this does yet
 	}
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
@@ -579,6 +591,33 @@ DJMDevice.prototype.send1x28 = function send1x28(i){
 }
 
 
+DJMDevice.prototype.send2x11 = function send2x11(ip){
+	// 50002 0x16
+	var device = this;
+	var chan = device.channel;
+	var b = Buffer(128);
+	b.fill();
+	for(var i=0; i<10; i++) b[i] = DJMDevice.magic[i];
+	b[0xa] = 0x11;
+	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	b[0x1f] = 0x01;
+	b[0x20] = (device.hardwareMode=='rekordbox' ? 0x01 : 0x00);
+	b[0x21] = device.channel;
+	b[0x22] = 0x01; // length[0]
+	b[0x23] = 0x04; // length[1]
+	b[0x24] = device.channel;
+	// One of these probably controls NFS information
+	b[0x25] = 0x01;
+	b[0x26] = 0;
+	b[0x27] = 0;
+	// Copy hostname (UTF-16BE)
+	for(var i=0; i<25; i++) b.writeUInt16BE(device.hostname.charCodeAt(i)||0, 0x28+i*2);
+	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
+		device.log('> 2_11', arguments);
+	});
+}
+
+
 DJMDevice.prototype.send2x16 = function send2x16(ip){
 	// 50002 0x16
 	var device = this;
@@ -589,7 +628,7 @@ DJMDevice.prototype.send2x16 = function send2x16(ip){
 		0x01, 0x01, 0x11, 0x00,
 	]);
 	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
-		device.log('> 2_x16', arguments);
+		device.log('> 2_16', arguments);
 	});
 }
 
@@ -698,7 +737,7 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	// every beat
 	if(device.useBeat128){
 		device.timerSend1x28 = setInterval(function(){
-			if(device.useBeatinfoPacket){
+			if(device.haveBeatinfo){
 				device.send1x28(device.beatinfoBeat);
 			}
 			++device.beatinfoBeat;

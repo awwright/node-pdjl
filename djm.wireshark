@@ -277,8 +277,8 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 
 	subtree:add(buffer(0x0b, 20), "Device name: "..buffer(0x0b, 20):stringz())
-	subtree:add(buffer(0x1f, 2), string.format("x1f: %04x", buffer(0x1f, 2):uint()) )
 
+	subtree:add(buffer(0x1f, 1), string.format("x1f: %02x [always x01?]", buffer(0x1f, 1):uint()) )
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x [1 from Rekordbox, 0 otherwise?]", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
 	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
@@ -450,12 +450,14 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		pinfo.cols.info = string.format("Beatinfo %d|%d", measure, beat)
 
 	elseif typ==0x10 then
-		-- Sent by CDJ to Rekordbox
-		--
+		-- Sent by CDJ to Rekordbox after first 0_06 packet with channel number>0x10
+		-- Seems to be asking for "hey what can you export to me"
 		-- Zero payload
-		pinfo.cols.info = string.format("Request for info?", measure, beat)
+		pinfo.cols.info = string.format("2_10", measure, beat)
 
 	elseif typ==0x11 then
+		-- Seems to be a reply to 2_10
+		-- The CDJ will attempt to NFS mount the sender after receiving this packet
 		pinfo.cols.info = string.format("Reply with info", measure, beat)
 		subtree:add(buffer(0x24, 1), string.format("Channel?: %02x", buffer(0x24,1):uint() ) )
 		subtree:add(buffer(0x25, 1), string.format("x25: %02x", buffer(0x25,1):uint() ) )
@@ -467,7 +469,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- Sent from Rekordbox to CDJ
 		-- Seems to be reply to a 0_x06 packet from device
 		-- Zero payload
-		pinfo.cols.info = string.format("Request for info?", measure, beat)
+		pinfo.cols.info = string.format("2_16", measure, beat)
 
 	elseif typ==0x19 then
 		-- Instruction to load track to device
@@ -526,15 +528,14 @@ function djmproto4.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 
 	subtree:add(buffer(0x0b, 20), "Device name: "..buffer(0x0b, 20):stringz())
-	subtree:add(buffer(0x1f, 2), string.format("x1f: %04x [always x0101?]", buffer(0x1f, 2):uint()) )
 
+	subtree:add(buffer(0x1f, 1), string.format("x1f: %02x [always x01?]", buffer(0x1f, 1):uint()) )
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x [1 from Rekordbox, 0 otherwise?]", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
 	subtree:add(buffer(0x21, 1), string.format("Channel: x%02x", channel))
 
 	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
-
 
 	if typ==0x20 then
 		subtree:add(buffer(0x28, 1), string.format("Request Link audio stream: %02x", buffer(0x28, 1):uint()) )
