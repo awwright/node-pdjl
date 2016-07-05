@@ -295,6 +295,40 @@ net.createServer(function(socket) {
 }).listen(1051);
 
 
+// Forward portmap requests on the custom 50111 port to OS
+// Right now this only works for one device at a time
+var portmapPort = null;
+var portmapIP = null;
+var portmapServer = dgram.createSocket("udp4");
+portmapServer.on("message", function(msg, rinfo){
+	portmapPort = rinfo.port;
+	portmapIP = rinfo.address;
+	console.log('portmap request', msg, 111, '127.0.0.1');
+	// When a request comes in from the CDJ, forward it to the OS
+	portmapClient.send(msg, 0, msg.length, 111, '127.0.0.1');
+});
+portmapServer.on("listening", function () {
+	var address = portmapServer.address();
+	console.log("portmapServer listening " +	address.address + ":" + address.port);
+});
+portmapServer.bind(50111, device.ipaddr, function onBound(){
+	console.log('portmapServer bound');
+});
+
+// And go OS->CDJ
+var portmapClient = dgram.createSocket("udp4");
+portmapClient.on("message", function(msg, rinfo){
+	console.log('portmap response', msg, portmapPort, portmapIP);
+	portmapServer.send(msg, 0, msg.length, portmapPort, portmapIP);
+});
+portmapClient.on("listening", function () {
+	var address = portmapClient.address();
+	console.log("portmapClient listening " +	address.address + ":" + address.port);
+});
+portmapClient.bind(0, '127.0.0.1', function onBound(){
+	console.log('portmapClient bound');
+});
+
 // 1. Boot normally, wait 3 more seconds
 // 2. Load track off "SD card" and play it
 // 3. become master
