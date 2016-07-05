@@ -89,7 +89,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 			buffer(0x28, 1):uint(), buffer(0x29, 1):uint(), buffer(0x2a, 1):uint(),
 			buffer(0x2b, 1):uint(), buffer(0x2c, 1):uint(), buffer(0x2d, 1):uint())
 		)
-		subtree:add(buffer(0x2e, 1), string.format("Channel: %02x", buffer(0x2e,1):uint()) ) -- Can be 00 for "Auto"
+		subtree:add(buffer(0x2e, 1), string.format("Channel: x%02x", buffer(0x2e,1):uint()) ) -- Can be 00 for "Auto"
 		subtree:add(buffer(0x2f, 1), string.format("PacketId: %02x", buffer(0x2f,1):uint()) )
 		subtree:add(buffer(0x30, 1), string.format("x30: %02x (01 from CDJ, 04 from Rekordbox)", buffer(0x30,1):uint()) )
 		local x31Map = {[1]="Auto", [2]="Manual"}
@@ -97,16 +97,16 @@ function djmproto0.dissector(buffer, pinfo, tree)
 	elseif typ==0x03 then
 		-- Seems to be a reply to 0_x02 when device is plugged into a numbered channel port
 		pinfo.cols.info = string.format("Youare plugged into channel %02x", buffer(0x24,1):uint())
-		subtree:add(buffer(0x24,1), string.format("Channel: %02x", buffer(0x24,1):uint()) )
+		subtree:add(buffer(0x24,1), string.format("Channel: x%02x", buffer(0x24,1):uint()) )
 		subtree:add(buffer(0x25,1), string.format("In reply to: %02x", buffer(0x25,1):uint()) )
 		subtree:add(buffer(0x26,1), string.format("x26: %02x (=00)", buffer(0x26,1):uint()) )
 	elseif typ==0x04 then
 		pinfo.cols.info = string.format("Whois the master?")
-		subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+		subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
 		subtree:add(buffer(0x25, 1), string.format("PacketId: %02x", buffer(0x25, 1):uint()))
 	elseif typ==0x05 then
 		pinfo.cols.info = string.format("Iam the master!")
-		subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+		subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
 		subtree:add(buffer(0x25, 1), string.format("x25: %02x", buffer(0x25, 1):uint()))
 	elseif typ==0x06 then
 		-- Generally always the same data, varies between device
@@ -126,7 +126,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		--0020   01 02 00 36 03 01 74 5e 1c 35 f3 9f c0 a8 00 5d
 		--0030   03 00 00 00 01 00
 		
-		subtree:add(buffer(0x24, 1), string.format("Channel: %x", buffer(0x24, 1):uint()))
+		subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
 		-- CDJ booting up with one mixer on the network with 02(manual) configuration sends x01
 		subtree:add(buffer(0x25, 1), string.format("x25: %x [device ID?]", buffer(0x25, 1):uint()))
 		subtree:add(buffer(0x26, 6), string.format("MAC: %02x:%02x:%02x:%02x:%02x:%02x",
@@ -142,7 +142,7 @@ function djmproto0.dissector(buffer, pinfo, tree)
 		pinfo.cols.info = string.format("Discover")
 	elseif typ==0x08 then
 		pinfo.cols.info = string.format("Device changing channel")
-		subtree:add(buffer(0x24, 1), string.format("Old channel: %02x", buffer(0x24, 1):uint()))
+		subtree:add(buffer(0x24, 1), string.format("Old channel: x%02x", buffer(0x24, 1):uint()))
 		subtree:add(buffer(0x25, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint(), buffer(0x28,1):uint()) )
 
 	elseif typ==0x0a then
@@ -174,7 +174,7 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	-- This isn't quite right, some setting on the CDJ is now making this output 0x03
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x (1 from Rekordbox, 0 otherwise?)", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
-	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
+	subtree:add(buffer(0x21, 1), string.format("Channel: x%02x", channel))
 	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %02x (%d) (%s)", buffer(0x22, 2):uint(), buffer(0x22, 2):uint(), lengthGood) )
 	if typ==0x02 then
@@ -206,7 +206,7 @@ function djmproto1.dissector(buffer, pinfo, tree)
 
 	elseif typ==0x27 then
 		-- Port 50002
-		subtree:add(buffer(0x27, 1), string.format("Channel: %02x", buffer(0x27, 1):uint()) )
+		subtree:add(buffer(0x27, 1), string.format("Channel: x%02x", buffer(0x27, 1):uint()) )
 		pinfo.cols.info = string.format("Ack new master")
 
 	elseif typ==0x28 then
@@ -240,7 +240,7 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	elseif typ==0x2a then
 		-- Port 50002
 		pinfo.cols.info = string.format("Sync/master nomination from mixer")
-		local x27 = subtree:add(buffer(0x27, 1), string.format("Channel: %x", buffer(0x27, 1):uint() ) )
+		local x27 = subtree:add(buffer(0x27, 1), string.format("Channel: x%02x", buffer(0x27, 1):uint() ) )
 		local x2b = subtree:add(buffer(0x2b, 1), string.format("Update sync assignment: %d (%s)", buffer(0x2b, 1):uint(), bits(buffer(0x2b, 1)) ) )
 		if buffer(0x2b,1):bitfield(2,1)>0 then
 			x2b:add(buffer(0x2b,1), string.format('..1..... = Free from master'))
@@ -308,7 +308,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 
 	elseif typ==0x0a then
-		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
 		local x25 = subtree:add(buffer(0x25, 3), string.format("x25: %06x", buffer(0x25, 3):uint()))
 		local x28 = subtree:add(buffer(0x28, 4), string.format("x28: %08x (sourceid)", buffer(0x28, 4):uint() ) )
 		local x2f = subtree:add(buffer(0x2c, 4), string.format("x2c: %04x [trackid]", buffer(0x2c, 4):uint() ) )
@@ -487,7 +487,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 	elseif typ==0x29 then
 		-- Ports 50002
-		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
 		local x27 = subtree:add(buffer(0x27, 1), string.format("x27: %02x (%s)", buffer(0x27, 1):uint(), bits(buffer(0x27, 1)) ) )
 		if buffer(0x27,1):bitfield(2,1)>0 then
 			x27:add(buffer(0x27,2), string.format('..1..... = Mixer is master'))
@@ -506,7 +506,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 	elseif typ==0x36 then
 		-- Ports 50002
 		pinfo.cols.info = string.format("Reply settings")
-		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: %02x", buffer(0x24, 1):uint()))
+		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
 
 	else
 		pinfo.cols.info = string.format("Unknown type 0x%02x", typ)
@@ -530,7 +530,7 @@ function djmproto4.dissector(buffer, pinfo, tree)
 
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x [1 from Rekordbox, 0 otherwise?]", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
-	subtree:add(buffer(0x21, 1), string.format("Channel: %02x", channel))
+	subtree:add(buffer(0x21, 1), string.format("Channel: x%02x", channel))
 
 	local lengthGood = (0x22+0x02+buffer(0x22, 2):uint() == buffer:len()) and 'good' or 'bad'
 	subtree:add(buffer(0x22, 2), string.format("Length of remaining payload: %d (%s)", buffer(0x22, 2):uint(), lengthGood) )
