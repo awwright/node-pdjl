@@ -278,11 +278,13 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			channel: device.channel,
 			mountext: query.mountext,
 			mount: query.mount,
+			comment2c: ' ',
 			comment6c: '2016-02-02',
+			comment84: '1000',
 			trackCount: 1999,
 			playlistCount: 32,
-			sizeMB: 1000,
-			freeMB: 400,
+			sizeMB: 10000,
+			freeMB: 4000,
 		};
 		device.send2x06(rinfo.address, response);
 	}else if(type==0x10){
@@ -669,13 +671,14 @@ DJMDevice.prototype.send2x06 = function send2x11(ip, data){
 	b[0x21] = device.channel;
 	b[0x22] = 0x00; // length[0]
 	b[0x23] = 0x9c; // length[1]
-	b[0x24] = device.channel;
 	// packet-specific payload now
 	b[0x27] = device.channel;
 	b[0x2b] = device.channel;
 	b[0x2d] = 0x20; // Don't know what this is
-	// Copy comment (UTF-16BE)
-	for(var i=0; i<20; i++) b.writeUInt16BE(data.comment6c.charCodeAt(i)||0, 0x6c+i*2);
+	// Copy strings (UTF-16BE)
+	for(var i=0; i<10; i++) b.writeUInt16BE(data.comment2c.charCodeAt(i)||0, 0x2c+i*2);
+	for(var i=0; i<10; i++) b.writeUInt16BE(data.comment6c.charCodeAt(i)||0, 0x6c+i*2);
+	for(var i=0; i<4; i++) b.writeUInt16BE(data.comment84.charCodeAt(i)||0, 0x84+i*2);
 	b.writeUInt16BE(data.trackCount, 0xa6);
 	b[0xa8] = 0x02;
 	b[0xa9] = 0x00;
