@@ -349,7 +349,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local x76Map = {[0]="Empty", [4]="Mounted"}
 		local x76 = subtree:add(buffer(0x76, 1), string.format("Disc status: %02x (%s)", buffer(0x76, 1):uint(), x76Map[buffer(0x76, 1):uint()] ) )
 
-		local x7bMap = {[2]="Loading", [3]="Playing", [5]="Paused", [6]="Stopped/Cue", [7]="Cue playing", [9]="Searching"}
+		local x7bMap = {[0]="Init", [2]="Loading", [3]="Playing", [5]="Paused", [6]="Stopped/Cue", [7]="Cue playing", [9]="Searching"}
 		local x7b = subtree:add(buffer(0x7b, 1), string.format("Play state: %02x (%s)", buffer(0x7b, 1):uint(), x7bMap[buffer(0x7b, 1):uint()] ) )
 		-- 06 (0110) when track is loaded, cue solid, play/pause blinking
 		-- 05 (0101) when track paused, away from cuepoint, both lamps blinking

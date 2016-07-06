@@ -8,19 +8,24 @@ var ifaceConf = JSON.parse(fs.readFileSync(ifaceConfFile));
 var DJMDevice = require('./libdjm.js').DJMDevice;
 
 var device = new DJMDevice;
-//device.setCofigureCDJ2000NXS();
-device.setConfigureRekordbox();
+device.setConfigureCDJ2000NXS();
 device.channel = ifaceConf.channel || 4;
-device.channel = 0x11;
+//device.setConfigureRekordbox();
+//device.channel = 0x11;
 device.macaddr = ifaceConf.mac;
 device.ipaddr = ifaceConf.ip;
 device.broadcastIP = ifaceConf.bcast;
 device.hostname = 'Bostons-Mac-Pro';
-device.cdjMediaSource = 'cd';
 console.log('Chan: '+device.channel);
 console.log('MAC: '+device.macaddr);
 console.log('IP: '+device.ipaddr);
+// configure media information
+device.cdjMediaSource = null;
 device.connect();
+setTimeout(function(){
+	console.log('Mounting SD');
+	device.mountSD();
+}, 15000);
 
 
 net.createServer(function(socket) {

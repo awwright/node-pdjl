@@ -37,9 +37,10 @@ var DJMDeviceDefaults = {
 	hasSD: false,
 	hasUSB: false,
 	haveBeatinfo: false, // Is the current track beat-analyzed?
-	haveSent216: false,
 	cdjMediaSource: 'none', // The source of the currently playing track {none,cd,sd,usb,link}
-	cdjMediaState: 'play', // {cue,pause,play}
+	cdjMediaState: 'none', // {none,loading,play,pause,cue,cueplay,seek}
+	// Internal state management
+	haveSent216: false,
 	// Callbacks
 	onDeviceChange: null,
 	onTrackChangeDetect: null,
@@ -116,6 +117,10 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	device.hasCD = false;
 	device.hasSD = false;
 	device.hasUSB = false;
+}
+DJMDevice.prototype.mountSD = function mountSD() {
+	var device = this;
+	device.hasSD = true;
 }
 
 // Creates network servers and all the other stuff necessary
@@ -444,8 +449,12 @@ DJMDevice.prototype.emitBeatinfo = function emitBeatinfo(){
 DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 	var device = this;
 	var chan = device.channel;
-	var br = 256-(beat%256);
-	var b4 = (beat%4)+1;
+	var br = 0xff;
+	var b4 = 0;
+	if(device.cdjMediaState){
+		br = 256-(beat%256);
+		b4 = (beat%4)+1;
+	}
 	var isMaster = (device.master==device.channel);
 	var e = 0x8c | (isMaster?0x20:0x00) | (device.sync?0x10:0x00);
 	var x9e = isMaster ? 0x02 : 0x00 ;
@@ -483,7 +492,7 @@ DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x08, 0x00, 0x2e, 0x93, 0x03, 0x00,
 		0xf4, 0x72, 0x00, 0x00, 0xb3, 0x24, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x22, 0x04, 0x04, 0x00, 0x00, 0x00, 0x04,
-		0x00, 0x00, 0x00, 0x04, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x06, f[0], f[1], f[2], f[3],
+		0x00, 0x00, 0x00, 0x04, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, f[0], f[1], f[2], f[3],
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, e,    0x0d, 0x7c, t[0], t[1], t[2], t[3],
 		0x00, 0x00, 0xff, 0xff, 0x7f, 0xff, 0xff, 0xff, t[0], t[1], t[2], t[3], 0x00, 0x01, x9e,  0xff,
 		0xff, 0xff, 0xff, 0xff, 0x00, br,   b4,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -497,16 +506,20 @@ DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 	var lamp_usb = false;
 	b.writeUInt8(lamp_sd?0x04:0x08, 0x6a);
 	b.writeUInt8(lamp_usb?0x04:0x08, 0x6b);
-	// Is stuff plugged in
-	var mounted_usb = false;
-	var mounted_sd = false;
-	var mounted_disc = false;
-	b[0x6f] = mounted_usb ? 0x00 : 0x04;
-	b[0x73] = mounted_sd ? 0x00 : 0x04;
-	b[0x76] = mounted_disc ? 0x04 : 0x00; // yeah it's backwards here. This might get overridden in 'cd' section below.
+	// Declare if stuff is plugged in
+	// If so indicated, the SD and USB fields will cause other CDJ devices to attempt an NFS mount of the data
+	b[0x6f] = device.hasUSB ? 0x00 : 0x04;
+	b[0x73] = device.hasSD ? 0x00 : 0x04;
+	b[0x76] = device.hasCD ? 0x04 : 0x00; // yeah it's backwards here. This might get overridden in 'cd' section below.
 	// Is it playing?
-	if(device.cdjMediaState=='play'){
-		b[0x7b] = 3;
+	switch(device.cdjMediaState){
+		case 'none': b[0x7b] = 0; break;
+		case 'loading': b[0x7b] = 2; break;
+		case 'play': b[0x7b] = 3; break;
+		case 'cue': b[0x7b] = 6; break;
+		case 'cueplay': b[0x7b] = 7; break;
+		case 'seek': b[0x7b] = 9; break;
+		default: throw new Error('Unknown cdjMediaState '+JSON.stringify(device.cdjMediaState));
 	}
 	if(device.beatinfoBPM){
 		b[0x92] = (device.beatinfoBPM>>8)&0xff;
