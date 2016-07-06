@@ -267,6 +267,24 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			device.log('< 2_x0a New master on ch.'+newMasterChannel.toString(16), msg[0x89].toByteString(), msg[0x9e].toByteString());
 			device.handleNewMaster(newMasterChannel);
 		}
+	}else if(type==0x05){
+		// We're getting asked about the NFS volume that another device just mounted
+		var query = {
+			channel: msg[0x21],
+			mountext: msg[0x2b],
+			mount: msg[0x2f],
+		};
+		var response = {
+			channel: device.channel,
+			mountext: query.mountext,
+			mount: query.mount,
+			comment6c: '2016-02-02',
+			trackCount: 1999,
+			playlistCount: 32,
+			sizeMB: 1000,
+			freeMB: 400,
+		};
+		device.send2x06(rinfo.address, response);
 	}else if(type==0x10){
 		// A rekordbox-specific packet it looks like, send 2_11
 		setTimeout(function(){
@@ -633,6 +651,42 @@ DJMDevice.prototype.send1x28 = function send1x28(i){
 	b.writeUInt32LE(durations[5], 0x38);
 	device.sock1.send(b, 0, b.length, 50001, ip, function(e){
 		device.log('> 1_x28', arguments);
+	});
+}
+
+DJMDevice.prototype.send2x06 = function send2x11(ip, data){
+	// 50002 0x11
+	// The CDJ will send its first portmap request to rekordbox in response to this packet
+	var device = this;
+	var chan = device.channel;
+	var b = Buffer(0xc0);
+	b.fill();
+	for(var i=0; i<10; i++) b[i] = DJMDevice.magic[i];
+	b[0xa] = 0x06;
+	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
+	b[0x1f] = 0x01;
+	b[0x20] = (device.hardwareMode=='rekordbox' ? 0x01 : 0x00);
+	b[0x21] = device.channel;
+	b[0x22] = 0x00; // length[0]
+	b[0x23] = 0x9c; // length[1]
+	b[0x24] = device.channel;
+	// packet-specific payload now
+	b[0x27] = device.channel;
+	b[0x2b] = device.channel;
+	b[0x2d] = 0x20; // Don't know what this is
+	// Copy comment (UTF-16BE)
+	for(var i=0; i<20; i++) b.writeUInt16BE(data.comment6c.charCodeAt(i)||0, 0x6c+i*2);
+	b.writeUInt16BE(data.trackCount, 0xa6);
+	b[0xa8] = 0x02;
+	b[0xa9] = 0x00;
+	b[0xaa] = 0x01;
+	b[0xab] = 0x01;
+	b.writeUInt16BE(data.playlistCount, 0xae);
+	b.writeUInt32BE(data.sizeMB, 0xb2);
+	b.writeUInt32BE(data.freeMB, 0xba);
+	// End of packet
+	device.sock2.send(b, 0, b.length, 50002, ip, function(e){
+		device.log('> 2_06', arguments);
 	});
 }
 
