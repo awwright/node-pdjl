@@ -683,7 +683,8 @@ DJMDevice.prototype.send2x06 = function send2x11(ip, data){
 	b[0xa8] = 0x02;
 	b[0xa9] = 0x00;
 	b[0xaa] = 0x01;
-	b[0xab] = 0x01;
+	var has_settings = false; // Triggers the "Press Menu to load settings" notice
+	b[0xab] = has_settings ? 1 : 0 ;
 	b.writeUInt16BE(data.playlistCount, 0xae);
 	b.writeUInt32BE(data.sizeMB, 0xb2);
 	b.writeUInt32BE(data.freeMB, 0xba);
