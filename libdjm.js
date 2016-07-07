@@ -680,7 +680,9 @@ DJMDevice.prototype.send2x06 = function send2x11(ip, data){
 	for(var i=0; i<10; i++) b.writeUInt16BE(data.comment6c.charCodeAt(i)||0, 0x6c+i*2);
 	for(var i=0; i<4; i++) b.writeUInt16BE(data.comment84.charCodeAt(i)||0, 0x84+i*2);
 	b.writeUInt16BE(data.trackCount, 0xa6);
-	b[0xa8] = 0x02;
+	// Color byte: {0=default, 1=magenta, 2=red, 3=orange, 4=yellow, 5=green, 6=blue, 7=blue, 8=violet, 9=nothing special etc}
+	var color = 0x00;
+	b[0xa8] = color;
 	b[0xa9] = 0x00;
 	b[0xaa] = 0x01;
 	var has_settings = false; // Triggers the "Press Menu to load settings" notice
