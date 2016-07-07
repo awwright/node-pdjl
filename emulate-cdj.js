@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-var dgram = require("dgram");
 var net = require("net");
 var fs = require("fs");
 var ifaceConfFile = process.env.PDJL_CONFIG || 'iface.json';
@@ -288,10 +287,10 @@ net.createServer(function(socket) {
 		// Then we see the following requests go over the wire:
 		// 1. 5-byte handshake
 		// 2. [11 87 23 49 ae 11 ff ff  ff fe 10 00 00 0f 01 14] that seems to contain the sender's channel number, and is responded with the server's channel number
-		// 3. [11 87 23 49 ae 11 03 80  00 9c 10 40 00 0f 02 14] that preceeds a menu request
-		// 4. [11 87 23 49 ae 11 03 80  00 9d 10 30 00 0f 06 14] that is the actual request, responds with 6 menu items
-		// 5. [11 87 23 49 ae 11 03 80  00 9e 10 10 02 0f 02 14] that preceeds a menu request
-		// 6. [11 87 23 49 ae 11 03 80  00 9f 10 30 00 0f 06 14] that is the actual request for the "ARTIST" submenu
+		// 3. [11 87 23 49 ae 11 03 80  nn nn 10 40 00 0f 02 14] that preceeds a menu request
+		// 4. [11 87 23 49 ae 11 03 80  nn nn 10 30 00 0f 06 14] that is the actual request, responds with 6 menu items
+		// 5. [11 87 23 49 ae 11 03 80  nn nn 10 10 02 0f 02 14] that preceeds a menu request
+		// 6. [11 87 23 49 ae 11 03 80  nn nn 10 30 00 0f 06 14] that is the actual request for the "ARTIST" submenu
 		throw new Error('Unknown incoming data/request');
 	});
 	socket.on('end', function() {
@@ -301,40 +300,8 @@ net.createServer(function(socket) {
 	socket.resume();
 }).listen(1051);
 
-
-// Forward portmap requests on the custom 50111 port to OS
-// Right now this only works for one device at a time
-var portmapPort = null;
-var portmapIP = null;
-var portmapServer = dgram.createSocket("udp4");
-portmapServer.on("message", function(msg, rinfo){
-	portmapPort = rinfo.port;
-	portmapIP = rinfo.address;
-	console.log('portmap request', msg, 111, '127.0.0.1');
-	// When a request comes in from the CDJ, forward it to the OS
-	portmapClient.send(msg, 0, msg.length, 111, '127.0.0.1');
-});
-portmapServer.on("listening", function () {
-	var address = portmapServer.address();
-	console.log("portmapServer listening " +	address.address + ":" + address.port);
-});
-portmapServer.bind(50111, device.ipaddr, function onBound(){
-	console.log('portmapServer bound');
-});
-
-// And go OS->CDJ
-var portmapClient = dgram.createSocket("udp4");
-portmapClient.on("message", function(msg, rinfo){
-	console.log('portmap response', msg, portmapPort, portmapIP);
-	portmapServer.send(msg, 0, msg.length, portmapPort, portmapIP);
-});
-portmapClient.on("listening", function () {
-	var address = portmapClient.address();
-	console.log("portmapClient listening " +	address.address + ":" + address.port);
-});
-portmapClient.bind(0, '127.0.0.1', function onBound(){
-	console.log('portmapClient bound');
-});
+var udpProxy = require('./udpproxy.js');
+udpProxy(50111, device.ipaddr, 111, '127.0.0.1');
 
 // 1. Boot normally, wait 3 more seconds
 // 2. Load track off "SD card" and play it
