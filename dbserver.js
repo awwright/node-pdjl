@@ -8,8 +8,9 @@ function handleDBServerConnection(device, socket) {
 	socket.on('data', function(data) {
 		state.length += data.length;
 		console.log('Incoming: ', data);
+		// The first packet that comes in on the connection always seems to be the handshake:
+		// the same five bytes in both directions, client first
 		var magic_handshake = new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
-
 		if(state.initialized===0){
 			if(data.compare(magic_handshake)!=0){
 				console.error(magic_handshake);
@@ -21,22 +22,13 @@ function handleDBServerConnection(device, socket) {
 			state.initialized = 1;
 			return;
 		}
-		var magic_header = new Buffer([0x11, 0x87, 0x23, 0x49, 0xae, 0x11]);
-		if(data.slice(0,6).compare(magic_header)!=0){
-			console.error(magic_header);
-			console.error(data);
-			throw new Error('Invalid checksum header?');
-		}
-		var incoming_hello_1 = new Buffer([
-			0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,
-			0xff, 0xfe, 0x10, 0x00, 0x00, 0x0f, 0x01, 0x14,
-			0x00, 0x00, 0x00, 0x0c, 0x06, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x11, 0x00, 0x00, 0x00, 0x03 ]);
-		if(data.compare(incoming_hello_1)==0){
-			console.log('Incoming data matches incoming_hello_1');
+		// The second packet that comes in seems to be this "hello" packet, the same 0x2a bytes except for the last one
+		var incoming_hello = new Buffer([ 0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff ]);
+		if(data.compare(incoming_hello)==0){
+			var incoming_hello_chan = data[0x29];
+			console.log('Incoming data matches incoming_hello chan='+incoming_hello_chan);
 			var chan = device.channel;
-			var response_hello_1 = new Buffer([
+			var response_hello = new Buffer([
 				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,
 				0xff, 0xfe, 0x10, 0x40, 0x00, 0x0f, 0x02, 0x14,
 				0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,
@@ -45,6 +37,12 @@ function handleDBServerConnection(device, socket) {
 				0x00, chan ]);
 			socket.write(response_hello_1);
 			return;
+		}
+		var magic_header = new Buffer([0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80]);
+		if(data.slice(0,8).compare(magic_header)!=0){
+			console.error(magic_header);
+			console.error(data);
+			throw new Error('Invalid checksum header?');
 		}
 		// A packet like this is sent out just before every 'primary' request that will return the actual track data
 		// Who knows what it does?
