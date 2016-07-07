@@ -46,7 +46,7 @@ var udpProxy = require('./udpproxy.js');
 udpProxy(50111, device.ipaddr, 111, '127.0.0.1');
 
 var DBServer = require('./dbserver.js');
-net.createServer(DBServer.handleDBServerConnection).listen(1051);
+net.createServer(DBServer.handleDBServerConnection.bind(null, device)).listen(1051);
 
 // 1. Boot normally, wait 3 more seconds
 // 2. Load track off "SD card" and play it

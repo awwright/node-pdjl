@@ -1,5 +1,5 @@
 
-function handleDBServerConnection(socket) {
+function handleDBServerConnection(device, socket) {
 	console.log('NEW CONNECTION '+socket.localPort);
 	var state = socket.state = {};
 	state.length = 0;
