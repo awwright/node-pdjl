@@ -24,7 +24,7 @@ device.connect();
 setTimeout(function(){
 	console.log('Mounting SD');
 	device.mountSD();
-}, 7000);
+}, 3000);
 
 
 net.createServer(function(socket) {
