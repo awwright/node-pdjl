@@ -278,7 +278,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			channel: device.channel,
 			mountext: query.mountext,
 			mount: query.mount,
-			comment2c: ' ',
+			comment2c: 'Label',
 			comment6c: '2016-02-02',
 			comment84: '1000',
 			trackCount: 1999,
