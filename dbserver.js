@@ -32,7 +32,7 @@ function Item40(r, aaa0, aaaa, bbbb, len){
 	]);
 }
 
-function Item41(r, aaaa, bbbb, numeric, label, eeee, symbol, i){
+function Item41(r, aaaa, bbbb, numeric, label, eeee, symbol){
 	// 00 = nothing
 	// 01 = folder
 	// 02 = disc (album title)
@@ -208,9 +208,9 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card (2/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x03, "\ufffaFOLDER\ufffb", 0x26, 0x90, 0),
-					Item41(r, 1, 0x0c, 0x02, "\ufffaTRACKS\ufffb", 0x26, 0x90, 1),
-					Item41(r, 1, 0x0c, 0x04, "\ufffaSEARCH\ufffb", 0x26, 0x90, 2),
+					Item41(r, 1, 0x0c, 0x03, "\ufffaFOLDER\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x02, "\ufffaTRACKS\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x04, "\ufffaSEARCH\ufffb", 0x26, 0x90),
 					Item42(r),
 				];
 				//console.log(response.map(formatBuf).join(''));
