@@ -278,7 +278,6 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			chanext: msg[0x2b],
 			source: msg[0x2f],
 		};
-		console.log(query);
 		var response = {
 			channel: device.channel,
 			chanext: query.chanext,
