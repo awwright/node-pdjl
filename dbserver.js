@@ -33,7 +33,7 @@ function Item40(r, aaa0, aaaa, bbbb, len){
 }
 
 var SYMX = 0x24;
-function Item41(r, aaaa, bbbb, numeric, dddd, label, eeee, symbol){
+function Item41(r, aaaa, bbbb, numeric, label, eeee, symbol){
 	// 00 = nothing
 	// 01 = folder
 	// 02 = disc (album title)
@@ -81,6 +81,7 @@ function Item41(r, aaaa, bbbb, numeric, dddd, label, eeee, symbol){
 	var symb = symbol;
 	var ccc0 = (numeric>>8) & 0xff;
 	var ccc1 = (numeric>>0) & 0xff;
+	var dddd = label.length*2 + 2;
 	var nnn0 = (label.length+1) >> 8;
 	var nnn1 = (label.length+1) & 0xff;
 	var buf = new Buffer(0x60+label.length*2);
@@ -138,6 +139,9 @@ function handleDBServerConnection(device, socket) {
 		if(data.slice(0,8).compare(incoming_hello)==0){
 			var incoming_hello_chan = data[0x24];
 			console.log('< hello chan='+incoming_hello_chan);
+			console.log(formatBuf(data));
+			// Form the response
+			console.log('> no I do not like your hat');
 			var chan = device.channel;
 			var response_hello = new Buffer([
 				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,
@@ -146,6 +150,7 @@ function handleDBServerConnection(device, socket) {
 				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 				0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00,
 				0x00, chan ]);
+			console.log(formatBuf(response_hello));
 			socket.write(response_hello);
 			return;
 		}
@@ -158,6 +163,7 @@ function handleDBServerConnection(device, socket) {
 		}
 		var r = data.slice(0x8, 0x8+2); // Request ID
 		var type = data[0xb]; // seems to be 0x{10,20,30,40,41,42}
+		var sourceMedia = data[0x23]; // 2=SD, 3=USB
 		console.log('< DBServer type=x'+type.toString(16));
 		console.log(formatBuf(data));
 		// This packet seems to control scrolling information
@@ -187,7 +193,7 @@ function handleDBServerConnection(device, socket) {
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
 				// SD card pre-request
 				console.log('SD card (3/4)');
-				var response_prerequest = Item40(r, 0, data[0x0b], 0x06, 0x04);
+				var response_prerequest = Item40(r, 0, data[0x0b], 0x06, 0x06);
 				console.log(formatBuf(response_prerequest));
 				socket.write(response_prerequest);
 				return;
@@ -202,7 +208,7 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card (2/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDER\ufffb", 0x26, 0x90),
 					Item42(r),
 				];
 				console.log(response.map(formatBuf).join(''));
@@ -214,12 +220,12 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card subdir (4/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, 0x12, "\ufffaFOLDER\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDER\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE2\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE3\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE4\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE5\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "0123456789kjsdafhsdklfjhsdalk", 0x26, 0x90),
 					Item42(r),
 				];
 				console.log(response.map(formatBuf).join(''));
@@ -228,16 +234,28 @@ function handleDBServerConnection(device, socket) {
 			}
 			var response = [
 				Item40(r, 0x01, 0, 1, 0),
-				Item41(r, 1, 0x0c, 1, 0x10, "ABCDEFG", 0x26, 0x04),
-				Item41(r, 1, 0x0c, 1, 0x4c, "Armin van Buuren feat. Eric Vloeimans", 0x26, 0x07),
-				Item41(r, 1, 0x0c, 1, 0x4c, "Embrace", 0x26, 0x02),
-				Item41(r, 1, 0x0c, 9001, 0x02, "", 0x26, 0x0b),
-				Item41(r, 1, 0x0c, 138*100, 0x02, "", 0x26, 0x0d), // 0 for blank, centi-bpm otherwise
-				Item41(r, 1, 0x0c, 1, 0x02, "", 0x26, 0x23),
+				Item41(r, 1, 0x0c, 1, "Track", 0x26, 0x04),
+				Item41(r, 1, 0x0c, 1, "Artist", 0x26, 0x07),
+				Item41(r, 1, 0x0c, 1, "Album", 0x26, 0x02),
+				Item41(r, 1, 0x0c, 9001, "", 0x26, 0x0b), // Duration (minutes)
+				Item41(r, 1, 0x0c, 138*100, "", 0x26, 0x0d), // 0 or tempo (hundredths of BPM)
+				Item41(r, 1, 0x0c, 1, "", 0x26, 0x23),
 				Item42(r),
 			];
 			console.log(response.map(formatBuf).join(''));
 			socket.write(Buffer.concat(response));
+			return;
+		}
+		if(type==0x3e){
+			console.log('> DBServer usb-query');
+			var response = Buffer([
+				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  0x00, 0x47, 0x10, 0x4b, 0x02, 0x0f, 0x04, 0x14,
+				0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x02,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x11, 0x00, 0x00, 0x3e, 0x03, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x02, 0x26,
+				0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+			]);
+			console.log(formatBuf(response));
+			socket.write(response);
 			return;
 		}
 		throw new Error('Unknown incoming data/request '+type.toString(16));
