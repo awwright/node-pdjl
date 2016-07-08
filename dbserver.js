@@ -32,8 +32,7 @@ function Item40(r, aaa0, aaaa, bbbb, len){
 	]);
 }
 
-var SYMX = 0x24;
-function Item41(r, aaaa, bbbb, numeric, label, eeee, symbol){
+function Item41(r, aaaa, bbbb, numeric, label, eeee, symbol, i){
 	// 00 = nothing
 	// 01 = folder
 	// 02 = disc (album title)
@@ -169,6 +168,7 @@ function handleDBServerConnection(device, socket) {
 		// This packet seems to control scrolling information
 		if(type==0x10){
 			console.log('> DBServer prerequest');
+			state.selectedItem = data[0x0c];
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
 				console.log('USB drive');
 				// USB drive pre-request
@@ -177,7 +177,7 @@ function handleDBServerConnection(device, socket) {
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x00, 0x0f, 0x03, 0x14]))==0){
 				// SD card pre-request
 				console.log('SD card (1/4)');
-				var response_prerequest = Item40(r, 0, data[0x0b], 0, 1);
+				var response_prerequest = Item40(r, 0, data[0x0b], 0, 3);
 				console.log(formatBuf(response_prerequest));
 				socket.write(response_prerequest);
 				return;
@@ -193,8 +193,8 @@ function handleDBServerConnection(device, socket) {
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
 				// SD card pre-request
 				console.log('SD card (3/4)');
-				var response_prerequest = Item40(r, 0, data[0x0b], 0x06, 0x06);
-				console.log(formatBuf(response_prerequest));
+				var response_prerequest = Item40(r, 0, data[0x0b], 0x06, 0x01);
+				//console.log(formatBuf(response_prerequest));
 				socket.write(response_prerequest);
 				return;
 			}
@@ -208,10 +208,12 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card (2/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDER\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x03, "\ufffaFOLDER\ufffb", 0x26, 0x90, 0),
+					Item41(r, 1, 0x0c, 0x02, "\ufffaTRACKS\ufffb", 0x26, 0x90, 1),
+					Item41(r, 1, 0x0c, 0x04, "\ufffaSEARCH\ufffb", 0x26, 0x90, 2),
 					Item42(r),
 				];
-				console.log(response.map(formatBuf).join(''));
+				//console.log(response.map(formatBuf).join(''));
 				socket.write(Buffer.concat(response));
 				return;
 			}
@@ -220,15 +222,10 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card subdir (4/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDER\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE2\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE3\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE4\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, "\ufffaFOLDE5\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, "0123456789kjsdafhsdklfjhsdalk", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "Submenu "+(state.selectedItem), 0x26, 0x90),
 					Item42(r),
 				];
-				console.log(response.map(formatBuf).join(''));
+				//console.log(response.map(formatBuf).join(''));
 				socket.write(Buffer.concat(response));
 				return;
 			}
