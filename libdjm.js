@@ -122,6 +122,10 @@ DJMDevice.prototype.mountSD = function mountSD() {
 	var device = this;
 	device.hasSD = true;
 }
+DJMDevice.prototype.mountUSB = function mountUSB() {
+	var device = this;
+	device.hasUSB = true;
+}
 
 // Creates network servers and all the other stuff necessary
 DJMDevice.prototype.connect = function connect() {
@@ -271,13 +275,14 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		// We're getting asked about the NFS volume that another device just mounted
 		var query = {
 			channel: msg[0x21],
-			mountext: msg[0x2b],
-			mount: msg[0x2f],
+			chanext: msg[0x2b],
+			source: msg[0x2f],
 		};
+		console.log(query);
 		var response = {
 			channel: device.channel,
-			mountext: query.mountext,
-			mount: query.mount,
+			chanext: query.chanext,
+			source: query.source,
 			comment2c: 'Label',
 			comment6c: '2016-02-02',
 			comment84: '1000',
@@ -522,10 +527,10 @@ DJMDevice.prototype.send2x0a = function send2x0a(target, pid, beat){
 	]);
 	b.write(device.deviceTypeNameBuf(), 0x0b, 0x0b+20);
 	// Various bytes for lamp indicators
-	var lamp_sd = false;
-	var lamp_usb = false;
-	b.writeUInt8(lamp_sd?0x04:0x08, 0x6a);
-	b.writeUInt8(lamp_usb?0x04:0x08, 0x6b);
+	var lamp_sd =  device.hasSD;
+	var lamp_usb = device.hasUSB;
+	b[0x6a] = lamp_sd ? 0x04 : 0x08;
+	b[0x6b] = lamp_usb ? 0x04 : 0x08;
 	// Declare if stuff is plugged in
 	// If so indicated, the SD and USB fields will cause other CDJ devices to attempt an NFS mount of the data
 	b[0x6f] = device.hasUSB ? 0x00 : 0x04;
@@ -672,8 +677,8 @@ DJMDevice.prototype.send2x06 = function send2x11(ip, data){
 	b[0x22] = 0x00; // length[0]
 	b[0x23] = 0x9c; // length[1]
 	// packet-specific payload now
-	b[0x27] = device.channel;
-	b[0x2b] = device.channel;
+	b[0x27] = data.chanext;
+	b[0x2b] = data.source;
 	b[0x2d] = 0x20; // Don't know what this is
 	// Copy strings (UTF-16BE)
 	for(var i=0; i<10; i++) b.writeUInt16BE(data.comment2c.charCodeAt(i)||0, 0x2c+i*2);

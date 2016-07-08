@@ -22,8 +22,8 @@ console.log('IP: '+device.ipaddr);
 device.cdjMediaSource = null;
 device.connect();
 setTimeout(function(){
-	console.log('Mounting SD');
-	device.mountSD();
+	console.log('Mounting storage');
+	device.mountUSB();
 }, 3000);
 
 
