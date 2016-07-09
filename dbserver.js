@@ -190,6 +190,7 @@ function handleDBServerConnection(device, socket) {
 		// This packet seems to control scrolling information
 		if(type==0x10){
 			console.log('> DBServer prerequest');
+			state.selectedMethod = type;
 			state.selectedItem = data[0x0c];
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
 				console.log('USB drive');
@@ -210,8 +211,19 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response_prerequest);
 			return;
 		}
+		if(type==0x11){
+			console.log('> DBServer prerequest for playlist');
+			state.selectedMethod = type;
+			state.selectedItem = data[0x0c];
+			var response_prerequest = Item40(r, 0, data[0x0b], 0x05, 7);
+			console.log(response_prerequest.join(''));
+			socket.write(response_prerequest);
+			return;
+		}
 		if(type==0x20){
 			console.log('> DBServer pre-request-20 '+data.slice(0x0c, 0x10).toString('hex'));
+			state.selectedMethod = type;
+			state.selectedItem = data[0x0c];
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
 				// SD card pre-request
 				console.log('SD card (3/4)');
@@ -230,7 +242,7 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card (2/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x0f, "\ufffa0f\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x05, "\ufffaPlaylist\ufffb", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x10, "\ufffa10\ufffb", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x11, "\ufffa11\ufffb", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x12, "\ufffa12\ufffb", 0x26, 0x90),
@@ -247,7 +259,7 @@ function handleDBServerConnection(device, socket) {
 				console.log('SD card subdir (4/4)');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x11, "Submenu 0x"+(state.selectedItem.toString(16)), 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x11, "Submenu 0x"+(state.selectedMethod.toString(16)+" 0x"+state.selectedItem.toString(16)), 0x26, 0x90),
 					Item42(r),
 				];
 				//console.log(response.map(formatBuf).join(''));
