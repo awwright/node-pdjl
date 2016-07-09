@@ -188,18 +188,21 @@ function handleDBServerConnection(device, socket) {
 		console.log('< DBServer type=x'+type.toString(16)+' media='+sourceMedia.toString(16));
 		console.log(formatBuf(data));
 		// This packet seems to control scrolling information
+		if(type==0x00){
+			console.log('> DBServer: do what now?');
+			return;
+		}
 		if(type==0x10){
-			console.log('> DBServer prerequest');
+			console.log('> DBServer: navigate to device menu');
 			state.selectedMethod = type;
 			state.selectedItem = data[0x0c];
+			state.selectedPlaylist = 0; // undefined
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
-				console.log('USB drive');
-				// USB drive pre-request
+				// USB drive pre-request?
 				return;
 			}
 			if(data.slice(0x0c, 0x10).compare(Buffer([0x00, 0x0f, 0x03, 0x14]))==0){
 				// SD card pre-request
-				console.log('SD card (1/4)');
 				var response_prerequest = Item40(r, 0, data[0x0b], 0, 6);
 				console.log(formatBuf(response_prerequest));
 				socket.write(response_prerequest);
@@ -212,71 +215,106 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(type==0x11){
-			console.log('> DBServer prerequest for playlist');
 			state.selectedMethod = type;
 			state.selectedItem = data[0x0c];
+			state.selectedPlaylist = (data[0x2d]<<8) + data[0x2e];
+			console.log('> DBServer navigate to item='+state.selectedItem.toString(16)+' playlist='+state.selectedPlaylist.toString(16)+'');
 			var response_prerequest = Item40(r, 0, data[0x0b], 0x05, 7);
-			console.log(response_prerequest.join(''));
+			console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
 		}
 		if(type==0x20){
-			console.log('> DBServer pre-request-20 '+data.slice(0x0c, 0x10).toString('hex'));
+			console.log('> DBServer navigate to tracks '+data.slice(0x0c, 0x10).toString('hex'));
 			state.selectedMethod = type;
 			state.selectedItem = data[0x0c];
-			if(data.slice(0x0c, 0x10).compare(Buffer([0x06, 0x0f, 0x04, 0x14]))==0){
-				// SD card pre-request
-				console.log('SD card (3/4)');
-				var response_prerequest = Item40(r, 0, data[0x0b], 0x06, 0x01);
-				//console.log(formatBuf(response_prerequest));
-				socket.write(response_prerequest);
-				return;
-			}
-			console.log('No response? Fatal');
+			var response_prerequest = Item40(r, 0, data[0x0b], 0x06, 0x02);
+			//console.log(formatBuf(response_prerequest));
+			socket.write(response_prerequest);
 			return;
 		}
 		if(type==0x30){
-			console.log('> DBServer main-request');
+			console.log('> DBServer render menu');
 			if(data[0x22]==0x01){
-				// SD card pre-request
-				console.log('SD card (2/4)');
+				console.log('render main menu');
+			}else if(data[0x22]==0x02){
+				console.log('render submenu');
+			}
+			// Figure out what we're rendering
+			if(state.selectedMethod==0x10 && state.selectedItem==0x00){
+				console.log('Render device menu');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
+					Item41(r, 1, 0x0c, 0x03, "\ufffaArtists\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x02, "\ufffaAlbums\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x04, "\ufffaTracks\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x0c, "\ufffaKey\ufffb", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x05, "\ufffaPlaylist\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x10, "\ufffa10\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x11, "\ufffa11\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x12, "\ufffa12\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x13, "\ufffa13\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x14, "\ufffa14\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x16, "\ufffaHistory\ufffb", 0x26, 0x90),
 					Item42(r),
 				];
-				//console.log(response.map(formatBuf).join(''));
-				socket.write(Buffer.concat(response));
-				return;
-			}
-			if(data[0x22]==0x02){
-				// SD card pre-request
-				console.log('SD card subdir (4/4)');
+			}else if(state.selectedMethod==0x10){
+				console.log('Render track menu');
 				var response = [
 					Item40(r, 0x01, 0x00, 0x01, 0),
-					Item41(r, 1, 0x0c, 0x11, "Submenu 0x"+(state.selectedMethod.toString(16)+" 0x"+state.selectedItem.toString(16)), 0x26, 0x90),
+					Item41(r, 1, 0x0c, 1, "selectedItem="+state.selectedItem.toString(16), 0x26, 0x23),
+					Item41(r, 1, 0x0c, 0x02, "\ufffaAlbums\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x04, "\ufffaTracks\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x0c, "\ufffaKey\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x05, "\ufffaPlaylist\ufffb", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x16, "\ufffaHistory\ufffb", 0x26, 0x90),
 					Item42(r),
 				];
-				//console.log(response.map(formatBuf).join(''));
-				socket.write(Buffer.concat(response));
-				return;
+			}else if(state.selectedMethod==0x11){
+				console.log('Render playlist');
+				var response = [
+					Item40(r, 0x01, 0x00, 0x01, 0),
+					Item41(r, 1, 0x0c, 1, "Playlist="+state.selectedPlaylist.toString(16), 0x26, 0x23),
+					Item41(r, 1, 0x0c, 0x14, "Folder 2", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x10, "Folder 3", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x2a, "Playlist 4", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x3d, "Playlist 5", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x37, "Playlist 6", 0x26, 0x90),
+					Item42(r),
+				];
+			}else if(state.selectedMethod==0x20){
+				console.log('Render x20');
+				var response = [
+					Item40(r, 0x01, 0x00, 0x01, 0),
+					Item41(r, 1, 0x0c, 1, "x20", 0x26, 0x23),
+					Item41(r, 1, 0x0c, 0x14, "Folder 2", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x10, "Folder 3", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x2a, "Playlist 4", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x3d, "Playlist 5", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x37, "Playlist 6", 0x26, 0x90),
+					Item42(r),
+				];
+			}else if(0){
+				// Whatever condition causes this menu to show up
+				var response = [
+					Item40(r, 0x01, 0, 1, 0),
+					Item41(r, 1, 0x0c, 1, "Track", 0x26, 0x04),
+					Item41(r, 1, 0x0c, 1, "Artist", 0x26, 0x07),
+					Item41(r, 1, 0x0c, 1, "Album", 0x26, 0x02),
+					Item41(r, 1, 0x0c, 9001, "", 0x26, 0x0b), // Duration (minutes)
+					Item41(r, 1, 0x0c, 138*100, "", 0x26, 0x0d), // 0 or tempo (hundredths of BPM)
+					Item41(r, 1, 0x0c, 1, "", 0x26, 0x23),
+					Item42(r),
+				];
+			}else{
+				console.log('Render unknown menu');
+				var response = [
+					Item40(r, 0x01, 0x00, 0x01, 0),
+					Item41(r, 1, 0x0c, 1, "Method="+state.selectedMethod.toString(16), 0x26, 0x23),
+					Item41(r, 1, 0x0c, 0x14, "Folder 2", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x10, "Folder 3", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x2a, "Playlist 4", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x3d, "Playlist 5", 0x26, 0x90),
+					Item41(r, 1, 0x0c, 0x37, "Playlist 6", 0x26, 0x90),
+					Item42(r),
+				];
 			}
-			var response = [
-				Item40(r, 0x01, 0, 1, 0),
-				Item41(r, 1, 0x0c, 1, "Track", 0x26, 0x04),
-				Item41(r, 1, 0x0c, 1, "Artist", 0x26, 0x07),
-				Item41(r, 1, 0x0c, 1, "Album", 0x26, 0x02),
-				Item41(r, 1, 0x0c, 9001, "", 0x26, 0x0b), // Duration (minutes)
-				Item41(r, 1, 0x0c, 138*100, "", 0x26, 0x0d), // 0 or tempo (hundredths of BPM)
-				Item41(r, 1, 0x0c, 1, "", 0x26, 0x23),
-				Item42(r),
-			];
-			console.log(response.map(formatBuf).join(''));
+			//console.log(response.map(formatBuf).join(''));
 			socket.write(Buffer.concat(response));
 			return;
 		}
