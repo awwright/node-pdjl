@@ -20,6 +20,41 @@ function formatBuf(b){
 	return x+"\n";
 }
 
+function assertParsed(data, info){
+	var backwards = info.toBuffer();
+	if(backwards.compare(data)){
+		console.error('Incoming/generated item mismatch!');
+		console.error(formatBuf(data));
+		console.error(formatBuf(backwards));
+		throw new Error('Incoming/generated mismatch');
+	}
+}
+
+function Item10(data){
+	if(data instanceof Buffer){
+		this.length = 0x2f;
+		this.method = 0x10;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.affectedMenu = data[0x22];
+		this.submenuItems = data[0x16]; // Seems to be set to 0x06 if the request is a submenu
+		this.listing = data[0x0c];
+		this.playlist = 0; // undefined
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item10.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var _x16 = this.submenuItems;
+	var _x22 = this.affectedMenu;
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x10, 0x00, 0x0f, 0x03, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0xff, 0xff, 0xff,
+	]);
+}
+
 function Item22(r){
 	return new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,
@@ -31,12 +66,14 @@ artBlob = require('fs').readFileSync('./art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
 
-function Item40(r, aaa0, aaaa, bbbb, len){
-	// aaa0 seems to list whichever "method" was used by the request -- byte 0xb
+function Item40(r, responseBody, aaaa, bbbb, len){
+	// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
+	// aaaa seems to list whichever "method" was used by the request in byte 0xb except for 0x30 which is 0
+	var x0xx = responseBody;
 	var len0 = len>>8;
 	var len1 = len & 0xff;
 	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  r[0], r[1], 0x10, 0x40, aaa0, 0x0f, 0x02, 0x14,
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  r[0], r[1], 0x10, 0x40, x0xx, 0x0f, 0x02, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x11, 0x00, 0x00, aaaa, bbbb, 0x11, 0x00, 0x00,  len0, len1,
 	]);
@@ -222,10 +259,12 @@ function handleDBServerConnection(device, socket) {
 		}
 		if(type==0x10){
 			console.log('> DBServer: navigate to device menu');
-			var affectedMenu = data[0x22];
-			var menu = state.menus[affectedMenu] = {};
+			var info = new Item10(data);
+			// Well this is causing no end of problems for my theories
+			//assertParsed(data, info);
+			var menu = state.menus[info.affectedMenu] = {};
 			menu.method = type;
-			menu.listing = data[0x0c];
+			menu.listing = info.listing;
 			menu.playlist = 0; // undefined
 			if(menu.listing==0x00){
 				menu.items = [
@@ -258,7 +297,7 @@ function handleDBServerConnection(device, socket) {
 					Item41(r, 1, 0x0c, 0x16, 0, "\ufffaHistory\ufffb", 0x26, 0x90),
 				];
 			}
-			var response_prerequest = Item40(r, 0, data[0x0b], 0x02, menu.items.length);
+			var response_prerequest = Item40(r, 0, type, 0x02, menu.items.length);
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
@@ -307,7 +346,7 @@ function handleDBServerConnection(device, socket) {
 				];
 			}
 			console.log('> DBServer navigate to playlist id='+menu.playlist.toString(16)+'');
-			var response_prerequest = Item40(r, 0, data[0x0b], 0x05, menu.items.length);
+			var response_prerequest = Item40(r, 0, type, 0x05, menu.items.length);
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
@@ -326,7 +365,7 @@ function handleDBServerConnection(device, socket) {
 				Item41(r, 1, 0x0c, 6, 0, "Key", 0x26, 0x8b),
 				Item41(r, 1, 0x0c, 7, 0, "Duration", 0x26, 0x92),
 			];
-			var response_prerequest = Item40(r, 0, data[0x0b], 0x00, menu.items);
+			var response_prerequest = Item40(r, 0, type, 0x00, menu.items);
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
@@ -345,7 +384,7 @@ function handleDBServerConnection(device, socket) {
 				Item41(r, 1, 0x0c, 0x3d, 0, "Playlist 5", 0x26, 0x90),
 				Item41(r, 1, 0x0c, 0x37, 0, "Playlist 6", 0x26, 0x90),
 			];
-			var response_prerequest = Item40(r, 0, data[0x0b], 0x06, menu.items.length);
+			var response_prerequest = Item40(r, 0, type, 0x06, menu.items.length);
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
