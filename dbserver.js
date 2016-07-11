@@ -55,10 +55,97 @@ Item10.prototype.toBuffer = function toBuffer(){
 	]);
 }
 
-function Item22(r){
+function Item11(data){
+	if(data instanceof Buffer){
+		this.length = 0x2f;
+		this.method = 0x10;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this._x16 = data[0x16];
+		this._x17 = data[0x17];
+		this.affectedMenu = data[0x22];
+		this.playlist = (data[0x2d]<<8) + data[0x2e];
+		this._x33 = data[0x33];
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item11.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var _x16 = this._x16; // This is set for the device full-menu; not sort-popout menu
+	var _x17 = this._x17; // This is set for the device full-menu; not sort-popout menu
+	var _x22 = this.affectedMenu;
+	var _x2d = (this.playlist>>8) & 0xff;
+	var _x2e = (this.playlist>>0) & 0xff;
+	var _x33 = this._x33;
 	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,
-		r[0], r[1], 0x10, 0x22, // to be completed
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x11, 0x05, 0x0f, 0x04, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, _x17,  0x00, 0x00, 0x00, 0x00, 0x00, _x2d, _x2e, 0x00,
+		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x11,
+		0x00, 0x00, 0x00, _x33,
+	]);
+}
+
+// This is sent to request the 'Sort' or maybe another pop-up menu
+function Item14(data){
+	if(data instanceof Buffer){
+		this.length = 0x2f;
+		this.method = 0x10;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.affectedMenu = data[0x22];
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item14.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var _x22 = this.affectedMenu;
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x14, 0x00, 0x0f, 0x03, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0x00, 0x10, 0x04,
+	]);
+}
+
+function Item22(data){
+}
+Item22.prototype.toBuffer = function toBuffer(){
+}
+
+// This is sent to request that a particular menu be rendered out to the client
+function Item30(data){
+	if(data instanceof Buffer){
+		this.length = 0x3e;
+		this.method = 0x30;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this._x16 = data[0x16];
+		this._x17 = data[0x17];
+		this.affectedMenu = data[0x22];
+		this.offset = (data[0x28]<<8) + (data[0x29]<<0);
+		this._x2e = data[0x2e];
+		this._x38 = data[0x38];
+		this._x3d = data[0x3d];
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item30.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var _x16 = this._x16; // This is set for the device full-menu; not sort-popout menu
+	var _x17 = this._x17; // This is set for the device full-menu; not sort-popout menu
+	var _x22 = this.affectedMenu;
+	var _x28 = (this.offset>>8) & 0xff;
+	var _x29 = (this.offset>>0) & 0xff;
+	var _x2e = this._x2e;
+	var _x38 = this._x38;
+	var _x3d = this._x3d;
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x30, 0x00, 0x0f, 0x06, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, _x17,  0x06, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, 0x00, _x2e, 0x11,
+		0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00,  _x38, 0x11, 0x00, 0x00, 0x00, _x3d,
 	]);
 }
 
@@ -262,6 +349,7 @@ function handleDBServerConnection(device, socket) {
 			var info = new Item10(data);
 			// Well this is causing no end of problems for my theories
 			//assertParsed(data, info);
+			console.log(info);
 			var menu = state.menus[info.affectedMenu] = {};
 			menu.method = type;
 			menu.listing = info.listing;
@@ -303,15 +391,14 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(type==0x11){
-			var affectedMenu = data[0x22];
-			var menu = state.menus[affectedMenu] = {};
-			menu.method = type;
-			menu.listing = data[0x0c];
-			menu.playlist = (data[0x2d]<<8) + data[0x2e];
-			if(menu.playlist==0x40){
+			var info = new Item11(data);
+			assertParsed(data, info);
+			console.log(info);
+			var menu = state.menus[info.affectedMenu] = {};
+			if(info.playlist==0x40){
 				// Trance Collections folder
 				menu.items = [
-					Item41(r, 1, 0x0c, 1, 0, "Playlist="+menu.playlist.toString(16), 0x26, 0x23),
+					Item41(r, 1, 0x0c, 1, 0, "Playlist="+info.playlist.toString(16), 0x26, 0x23),
 					Item41(r, 1, 0x0c, 0x28, 0, "Trance Uplifting Favorites", 0x26, 0x08),
 					Item41(r, 1, 0x0c, 0x10, 0, "B", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x28, 0, "C", 0x26, 0x90),
@@ -322,7 +409,7 @@ function handleDBServerConnection(device, socket) {
 					Item41(r, 1, 0x0c, 0x37, 0, "H", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x37, 0, "I", 0x26, 0x90),
 				];
-			}else if(menu.playlist==0x28){
+			}else if(info.playlist==0x28){
 				// Trance Uplifting Favorites playlist
 				menu.items = [
 					Item41(r, 1, 0x0c, 0x1778, 0x36af, "Dido", 0x26, 0x04, 0x07, 0x0f, 0xde, 0x02, ""),
@@ -337,7 +424,7 @@ function handleDBServerConnection(device, socket) {
 			}else{
 				// Playlists folder
 				menu.items = [
-					Item41(r, 1, 0x0c, 1, 0, "Playlist="+menu.playlist.toString(16), 0x26, 0x23),
+					Item41(r, 1, 0x0c, 1, 0, "Playlist="+info.playlist.toString(16), 0x26, 0x23),
 					Item41(r, 1, 0x0c, 0x14, 0, "Folder 2", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x10, 0, "Folder 3", 0x26, 0x90),
 					Item41(r, 1, 0x0c, 0x40, 0, "Trance Collections", 0x26, 0x90),
@@ -345,7 +432,7 @@ function handleDBServerConnection(device, socket) {
 					Item41(r, 1, 0x0c, 0x37, 0, "Playlist 6", 0x26, 0x90),
 				];
 			}
-			console.log('> DBServer navigate to playlist id='+menu.playlist.toString(16)+'');
+			console.log('> DBServer navigate to playlist id='+info.playlist.toString(16)+'');
 			var response_prerequest = Item40(r, 0, type, 0x05, menu.items.length);
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
@@ -353,8 +440,10 @@ function handleDBServerConnection(device, socket) {
 		}
 		if(type==0x14){
 			console.log('> DBServer open sort menu');
-			var affectedMenu = data[0x22];
-			var menu = state.menus[affectedMenu] = {};
+			var info = new Item14(data);
+			assertParsed(data, info);
+			console.log(info);
+			var menu = state.menus[info.affectedMenu] = {};
 			menu.items = [
 				Item41(r, 1, 0x0c, 0, 0, "Default", 0x26, 0xa1),
 				Item41(r, 1, 0x0c, 1, 0, "Alphabet", 0x26, 0xa2),
@@ -390,18 +479,18 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(type==0x30){
-			var offset = (data[0x28]<<8) + (data[0x29]<<0);
-			var affectedMenu = data[0x22];
+			var info = new Item30(data);
+			assertParsed(data, info);
+			console.log(info);
 			var menuLabels = {
 				1: 'mainmenu',
 				2: 'submenu',
 				5: 'sortmenu',
 			}
-			var menu = state.menus[affectedMenu];
-			var menuLabel = menuLabels[affectedMenu] || affectedMenu.toString(16);
-			console.log('0x38 = '+data.slice(0x38, 0x40).toString('hex'));
-			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+offset.toString(16));
-			var response = menu.items.slice(offset, offset+6);
+			var menu = state.menus[info.affectedMenu];
+			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
+			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
+			var response = menu.items.slice(info.offset, info.offset+6);
 			response.unshift(Item40(r, 0x01, 0x00, 0x01, 0));
 			response.push(Item42(r));
 			if(showOutgoing) console.log(response.map(formatBuf).join(''));
