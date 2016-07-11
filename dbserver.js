@@ -210,16 +210,33 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 	]);
 }
 
-function Item41(r, aaaa, bbbb, numeric, bpm, label, eeee, symbol, ffff, gggg, hhhh, iiii, sticky){
-	// Some defaults
-	ffff = ffff || 0; // Icon for second column
-	gggg = gggg || 0;
-	hhhh = hhhh || 0;
-	iiii = iiii || 0;
-	sticky = sticky || '';
+function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
+	if(requestId instanceof Buffer){
+		var data = requestId;
+		this.length = data.length;
+		// do stuff here
+		return;
+	}
+	for(var n in data) this[n]=data;
+	this.length = 0;
+	this.requestId = requestId;
+	this.symbol = symbol;
+	this.numeric = numeric;
+	this.label = label;
+}
+Item41.prototype.toBuffer = function toBuffer(){
+	var aaaa = 1;
+	var bbbb = 0x0c;
+	var eeee = 0x26;
+	var ffff = this.ffff || 0; // Icon for second column
+	var gggg = this.gggg || 0;
+	var hhhh = this.hhhh || 0;
+	var iiii = this.iiii || 0;
+	var sticky = this.sticky || '';
+	var bpm = this.numeric2 || 0;
 
 	// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
-	var symb = symbol;
+	var symb = this.symbol;
 
 	// For some menu items, this provides a numeric argument e.g. beats per 100 minutes, or duration in minutes.
 	// For others, this specifies which submenu item it links to
@@ -243,21 +260,21 @@ function Item41(r, aaaa, bbbb, numeric, bpm, label, eeee, symbol, ffff, gggg, hh
 	// 11 = (x20-x30 request)
 	// 12 = Search, no submenu requests, shows blank submenu
 
-	var _x08 = (r>>8) & 0xff;
-	var _x09 = (r>>0) & 0xff;
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
 	var bbcc = (bpm>>8) & 0xff;
 	var bbdd = (bpm>>0) & 0xff;
-	var ccc0 = (numeric>>8) & 0xff;
-	var ccc1 = (numeric>>0) & 0xff;
-	var size = label.length*2 + 2;
-	var len0 = (label.length+1) >> 8;
-	var len1 = (label.length+1) & 0xff;
+	var ccc0 = (this.numeric>>8) & 0xff;
+	var ccc1 = (this.numeric>>0) & 0xff;
+	var size = this.label.length*2 + 2;
+	var len0 = (this.label.length+1) >> 8;
+	var len1 = (this.label.length+1) & 0xff;
 	var lem0 = (sticky.length+1) >> 8;
 	var lem1 = (sticky.length+1) & 0xff;
-	var buf = new Buffer(0x60+label.length*2);
+	var buf = new Buffer(0x60+this.label.length*2);
 	buf.fill();
 	var tpl = new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  r[0], r[1], 0x10, 0x41, aaaa, 0x0f, bbbb, 0x14,
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x41, aaaa, 0x0f, bbbb, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x02,  0x06, 0x02, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
 		0x11, 0x00, 0x00, bbcc, bbdd, 0x11, 0x00, 0x00,  ccc0, ccc1, 0x11, 0x00, 0x00, 0x00, size, 0x26,
 		0x00, 0x00, len0, len1, 0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x02, eeee, 0x00, 0x00, lem0, lem1,
@@ -266,9 +283,9 @@ function Item41(r, aaaa, bbbb, numeric, bpm, label, eeee, symbol, ffff, gggg, hh
 	]);
 	// Write first string
 	tpl.copy(buf, 0, 0, 0x34);
-	for(var i=0; i<label.length; i++) buf.writeUInt16BE(label.charCodeAt(i)||0, 0x34+i*2);
+	for(var i=0; i<this.label.length; i++) buf.writeUInt16BE(this.label.charCodeAt(i)||0, 0x34+i*2);
 	// Write second string
-	var start = 0x34+label.length*2;
+	var start = 0x34+this.label.length*2;
 	tpl.copy(buf, start, 0x34, 0x40);
 	for(var i=0; i<sticky.length; i++) buf.writeUInt16BE(sticky.charCodeAt(i)||0, start+i*2+0xc);
 	// Write to end
@@ -361,33 +378,43 @@ function handleDBServerConnection(device, socket) {
 			menu.playlist = 0; // undefined
 			if(menu.listing==0x00){
 				menu.items = [
-					Item41(r, 1, 0x0c, 0x03, 0, "\ufffaArtists\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x02, 0, "\ufffaAlbums\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x04, 0, "\ufffaTracks\ufffb", 0x26, 0x83),
-					Item41(r, 1, 0x0c, 0x0c, 0, "\ufffaKey\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x05, 0, "\ufffaPlaylist\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x16, 0, "\ufffaHistory\ufffb", 0x26, 0x90),
+					new Item41(r, 0x90, 0x3, "\ufffaArtists\ufffb"),
+					new Item41(r, 0x90, 0x2, "\ufffaAlbums\ufffb"),
+					new Item41(r, 0x83, 0x4, "\ufffaTracks\ufffb"),
+					new Item41(r, 0x90, 0xc, "\ufffaKey\ufffb"),
+					new Item41(r, 0x90, 0x5, "\ufffaPlaylist\ufffb"),
+					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
+				];
+			}else if(menu.listing==0x02){
+				// List all the albums
+				menu.items = [
+					new Item41(r, 0x04, 0xf42f, "Album"),
+				];
+			}else if(menu.listing==0x03){
+				// List all the artists
+				menu.items = [
+					new Item41(r, 0x04, 0x1778, "Artist"),
 				];
 			}else if(menu.listing==0x04){
 				// List all the tracks!
 				menu.items = [
-					Item41(r, 1, 0x0c, 0x1778, 0x36af, "Dido", 0x26, 0x04, 0x07, 0x0f, 0xde, 0x02, ""),
-					Item41(r, 1, 0x0c, 0x1779, 0x35e8, "Exactly", 0x26, 0x04, 0x0d, 0x0f, 0xde, 0x02),
-					Item41(r, 1, 0x0c, 0x177a, 0x35e8, "Arisen", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177b, 0x35e8, "Communication Part One", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177c, 0x2ee0, "Poppiholla (Club Mix)", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177d, 0x2ee0, "Lost (Dance)", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177e, 0x2ee0, "Strangers We've Become", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177f, 0x2ee0, "Every Other Way (Armin van Buuren Remix)", 0x26, 0x04, 0x0d),
+					new Item41(r, 0x04, 0x1778, "Dido", 0x07, 0x36af),
+					new Item41(r, 0x04, 0x1779, "Exactly", 0x0d, 0x35e8),
+					new Item41(r, 0x04, 0x177a, "Arisen", 0x0d, 0x35e8),
+					new Item41(r, 0x04, 0x177b, "Communication Part One", 0x0d, 0x35e8),
+					new Item41(r, 0x04, 0x177c, "Poppiholla (Club Mix)", 0x0d, 0x2ee0),
+					new Item41(r, 0x04, 0x177d, "Lost (Dance)", 0x0d, 0x2ee0),
+					new Item41(r, 0x04, 0x177e, "Strangers We've Become", 0x0d, 0x2ee0),
+					new Item41(r, 0x04, 0x177f, "Every Other Way (Armin van Buuren Remix)", 0x0d, 0x2ee0),
 				];
 			}else{
 				menu.items = [
-					Item41(r, 1, 0x0c, 0x01, 0, "selectedItem="+menu.listing.toString(16), 0x26, 0x23),
-					Item41(r, 1, 0x0c, 0x02, 0, "\ufffaAlbums\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x04, 0, "\ufffaTracks\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x0c, 0, "\ufffaKey\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x05, 0, "\ufffaPlaylist\ufffb", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x16, 0, "\ufffaHistory\ufffb", 0x26, 0x90),
+					new Item41(r, 0x23, 0x01, "selectedItem="+menu.listing.toString(16)),
+					new Item41(r, 0x90, 0x02, "\ufffaAlbums\ufffb"),
+					new Item41(r, 0x90, 0x04, "\ufffaTracks\ufffb"),
+					new Item41(r, 0x90, 0x0c, "\ufffaKey\ufffb"),
+					new Item41(r, 0x90, 0x05, "\ufffaPlaylist\ufffb"),
+					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
 				];
 			}
 			var response_prerequest = Item40(r, 0, type, 0x02, menu.items.length);
@@ -404,38 +431,38 @@ function handleDBServerConnection(device, socket) {
 			if(info.playlist==0x40){
 				// Trance Collections folder
 				menu.items = [
-					Item41(r, 1, 0x0c, 1, 0, "Playlist="+info.playlist.toString(16), 0x26, 0x23),
-					Item41(r, 1, 0x0c, 0x28, 0, "Trance Uplifting Favorites", 0x26, 0x08),
-					Item41(r, 1, 0x0c, 0x10, 0, "B", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x28, 0, "C", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x3d, 0, "D", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x37, 0, "E", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x37, 0, "F", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x37, 0, "G", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x37, 0, "H", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x37, 0, "I", 0x26, 0x90),
+					new Item41(r, 0x23, 1, "Playlist="+info.playlist.toString(16)),
+					new Item41(r, 0x08, 0x28, "Trance Uplifting Favorites"),
+					new Item41(r, 0x90, 0x10, "B"),
+					new Item41(r, 0x90, 0x28, "C"),
+					new Item41(r, 0x90, 0x3d, "D"),
+					new Item41(r, 0x90, 0x37, "E"),
+					new Item41(r, 0x90, 0x37, "F"),
+					new Item41(r, 0x90, 0x37, "G"),
+					new Item41(r, 0x90, 0x37, "H"),
+					new Item41(r, 0x90, 0x37, "I"),
 				];
 			}else if(info.playlist==0x28){
 				// Trance Uplifting Favorites playlist
 				menu.items = [
-					Item41(r, 1, 0x0c, 0x1778, 0x36af, "Dido", 0x26, 0x04, 0x07, 0x0f, 0xde, 0x02, ""),
-					Item41(r, 1, 0x0c, 0x1779, 0x35e8, "Exactly", 0x26, 0x04, 0x0d, 0x0f, 0xde, 0x02),
-					Item41(r, 1, 0x0c, 0x177a, 0x35e8, "Arisen", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177b, 0x35e8, "Communication Part One", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177c, 0x2ee0, "Poppiholla (Club Mix)", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177d, 0x2ee0, "Lost (Dance)", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177e, 0x2ee0, "Strangers We've Become", 0x26, 0x04, 0x0d),
-					Item41(r, 1, 0x0c, 0x177f, 0x2ee0, "Every Other Way (Armin van Buuren Remix)", 0x26, 0x04, 0x0d),
+					new Item41(r, 0x04, 0x1778, "Dido", 0x36af, 0x07, 0x0f, 0xde, 0x02, ""),
+					new Item41(r, 0x04, 0x1779, "Exactly", 0x35e8, 0x0d, 0x0f, 0xde, 0x02),
+					new Item41(r, 0x04, 0x177a, "Arisen", 0x35e8, 0x0d),
+					new Item41(r, 0x04, 0x177b, "Communication Part One", 0x35e8, 0x0d),
+					new Item41(r, 0x04, 0x177c, "Poppiholla (Club Mix)", 0x2ee0, 0x0d),
+					new Item41(r, 0x04, 0x177d, "Lost (Dance)", 0x2ee0, 0x0d),
+					new Item41(r, 0x04, 0x177e, "Strangers We've Become", 0x2ee0, 0x0d),
+					new Item41(r, 0x04, 0x177f, "Every Other Way (Armin van Buuren Remix)", 0x2ee0, 0x0d),
 				];
 			}else{
 				// Playlists folder
 				menu.items = [
-					Item41(r, 1, 0x0c, 1, 0, "Playlist="+info.playlist.toString(16), 0x26, 0x23),
-					Item41(r, 1, 0x0c, 0x14, 0, "Folder 2", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x10, 0, "Folder 3", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x40, 0, "Trance Collections", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x3d, 0, "Playlist 5", 0x26, 0x90),
-					Item41(r, 1, 0x0c, 0x37, 0, "Playlist 6", 0x26, 0x90),
+					new Item41(r, 0x23, 1, "Playlist="+info.playlist.toString(16)),
+					new Item41(r, 0x90, 0x14, "Folder 2"),
+					new Item41(r, 0x90, 0x10, "Folder 3"),
+					new Item41(r, 0x90, 0x40, "Trance Collections"),
+					new Item41(r, 0x90, 0x3d, "Playlist 5"),
+					new Item41(r, 0x90, 0x37, "Playlist 6"),
 				];
 			}
 			var response_prerequest = Item40(r, 0, type, 0x05, menu.items.length);
@@ -450,14 +477,14 @@ function handleDBServerConnection(device, socket) {
 			assertParsed(data, info);
 			var menu = state.menus[info.affectedMenu] = {};
 			menu.items = [
-				Item41(r, 1, 0x0c, 0, 0, "Default", 0x26, 0xa1),
-				Item41(r, 1, 0x0c, 1, 0, "Alphabet", 0x26, 0xa2),
-				Item41(r, 1, 0x0c, 2, 0, "Artist", 0x26, 0x81),
-				Item41(r, 1, 0x0c, 3, 0, "Album", 0x26, 0x82),
-				Item41(r, 1, 0x0c, 4, 0, "Tempo", 0x26, 0x85),
-				Item41(r, 1, 0x0c, 5, 0, "Rating", 0x26, 0x86),
-				Item41(r, 1, 0x0c, 6, 0, "Key", 0x26, 0x8b),
-				Item41(r, 1, 0x0c, 7, 0, "Duration", 0x26, 0x92),
+				new Item41(r, 0xa1, 0, "Default"),
+				new Item41(r, 0xa2, 1, "Alphabet"),
+				new Item41(r, 0x81, 2, "Artist"),
+				new Item41(r, 0x82, 3, "Album"),
+				new Item41(r, 0x85, 4, "Tempo"),
+				new Item41(r, 0x86, 5, "Rating"),
+				new Item41(r, 0x8b, 6, "Key"),
+				new Item41(r, 0x92, 7, "Duration"),
 			];
 			var response_prerequest = Item40(r, 0, type, 0x00, menu.items);
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
@@ -471,12 +498,12 @@ function handleDBServerConnection(device, socket) {
 			menu.listing = data[0x0c];
 			console.log('> DBServer navigate to tracks listing='+menu.listing.toString(16));
 			menu.items = [
-				Item41(r, 1, 0x0c, 1, 0, "x20", 0x26, 0x23),
-				Item41(r, 1, 0x0c, 0x14, 0, "Folder 2", 0x26, 0x90),
-				Item41(r, 1, 0x0c, 0x10, 0, "Folder 3", 0x26, 0x90),
-				Item41(r, 1, 0x0c, 0x2a, 0, "Playlist 4", 0x26, 0x90),
-				Item41(r, 1, 0x0c, 0x3d, 0, "Playlist 5", 0x26, 0x90),
-				Item41(r, 1, 0x0c, 0x37, 0, "Playlist 6", 0x26, 0x90),
+				new Item41(r, 0x23, 1, "x20"),
+				new Item41(r, 0x90, 0x14, "Folder 2"),
+				new Item41(r, 0x90, 0x10, "Folder 3"),
+				new Item41(r, 0x90, 0x2a, "Playlist 4"),
+				new Item41(r, 0x90, 0x3d, "Playlist 5"),
+				new Item41(r, 0x90, 0x37, "Playlist 6"),
 			];
 			var response_prerequest = Item40(r, 0, type, 0x06, menu.items.length);
 			console.log('> DBServer open sort menu');
@@ -495,23 +522,26 @@ function handleDBServerConnection(device, socket) {
 			}
 			var menu = state.menus[info.affectedMenu];
 			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
-			var response = menu.items.slice(info.offset, info.offset+6);
+			var response = menu.items.slice(info.offset, info.offset+6).map(function(v){
+				return v.toBuffer();
+			});
 			response.unshift(Item40(r, 0x01, 0x00, 0x01, 0));
 			response.push(Item42(r));
+			console.log('RENDER MENU', response);
 			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
-			//if(showOutgoing) console.log(response.map(formatBuf).join(''));
+			if(showOutgoing) console.log(response.map(formatBuf).join(''));
 			socket.write(Buffer.concat(response));
 			return;
 		}
 		if(0){
 			// Whatever condition causes this "Link Info" menu to show up
 			menu.items = [
-				Item41(r, 1, 0x0c, 1, 0, "Track", 0x26, 0x04),
-				Item41(r, 1, 0x0c, 1, 0, "Artist", 0x26, 0x07),
-				Item41(r, 1, 0x0c, 1, 0, "Album", 0x26, 0x02),
-				Item41(r, 1, 0x0c, 9001, 0, "", 0x26, 0x0b), // Duration (minutes)
-				Item41(r, 1, 0x0c, 138*100, 0, "", 0x26, 0x0d), // 0 or tempo (hundredths of BPM)
-				Item41(r, 1, 0x0c, 1, 0, "Comment", 0x26, 0x23),
+				new Item41(r, 0x04, 1, "Track"),
+				new Item41(r, 0x07, 1, "Artist"),
+				new Item41(r, 0x02, 1, "Album"),
+				new Item41(r, 0x0b, 9001, ""), // Duration (minutes)
+				new Item41(r, 0x0d, 138*100, ""), // 0 or tempo (hundredths of BPM)
+				new Item41(r, 0x23, 1, "Comment"),
 			];
 		}
 		if(type==0x3e){
