@@ -22,17 +22,29 @@ function formatBuf(b){
 
 function assertParsed(data, info){
 	var backwards = info.toBuffer();
-	if(backwards.compare(data)){
-		console.error('Incoming/generated item mismatch!');
+	if(info.length!==data.length){
+		console.error('Incoming/generated item length mismatch!');
 		console.error(formatBuf(data));
 		console.error(formatBuf(backwards));
-		throw new Error('Incoming/generated mismatch');
+		throw new Error('Incoming/generated length mismatch');
+	}
+	if(backwards.compare(data)){
+		console.error('Incoming/generated item data mismatch!');
+		console.error(formatBuf(data));
+		console.error(formatBuf(backwards));
+		throw new Error('Incoming/generated data mismatch');
 	}
 }
 
 function Item10(data){
+	// This also seems to come in a number of different lengths
+	// This form is requested for:
+	// - Loading device main menu length=0x2f
+	// - Loading Artist submenu length-0x2a
+	// TODO this should consume only as many bytes as the item actually takes up
+	// The `length` property specifies how many bytes were actually parsed
 	if(data instanceof Buffer){
-		this.length = 0x2f;
+		this.length = data.length;
 		this.method = 0x10;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this.affectedMenu = data[0x22];
@@ -56,8 +68,11 @@ Item10.prototype.toBuffer = function toBuffer(){
 }
 
 function Item11(data){
+	// This seems to come in a number of different lengths
+	// This form is requested for:
+	// 
 	if(data instanceof Buffer){
-		this.length = 0x2f;
+		this.length = data.length;
 		this.method = 0x10;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this._x16 = data[0x16];
@@ -89,7 +104,7 @@ Item11.prototype.toBuffer = function toBuffer(){
 // This is sent to request the 'Sort' or maybe another pop-up menu
 function Item14(data){
 	if(data instanceof Buffer){
-		this.length = 0x2f;
+		this.length = data.length;
 		this.method = 0x10;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this.affectedMenu = data[0x22];
@@ -116,7 +131,7 @@ Item22.prototype.toBuffer = function toBuffer(){
 // This is sent to request that a particular menu be rendered out to the client
 function Item30(data){
 	if(data instanceof Buffer){
-		this.length = 0x3e;
+		this.length = data.length;
 		this.method = 0x30;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this._x16 = data[0x16];
@@ -345,11 +360,10 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(type==0x10){
-			console.log('> DBServer: navigate to device menu');
 			var info = new Item10(data);
 			// Well this is causing no end of problems for my theories
-			//assertParsed(data, info);
 			console.log(info);
+			assertParsed(data, info);
 			var menu = state.menus[info.affectedMenu] = {};
 			menu.method = type;
 			menu.listing = info.listing;
@@ -386,14 +400,15 @@ function handleDBServerConnection(device, socket) {
 				];
 			}
 			var response_prerequest = Item40(r, 0, type, 0x02, menu.items.length);
+			console.log('> DBServer: navigate to device menu');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
 		}
 		if(type==0x11){
 			var info = new Item11(data);
-			assertParsed(data, info);
 			console.log(info);
+			assertParsed(data, info);
 			var menu = state.menus[info.affectedMenu] = {};
 			if(info.playlist==0x40){
 				// Trance Collections folder
@@ -432,17 +447,16 @@ function handleDBServerConnection(device, socket) {
 					Item41(r, 1, 0x0c, 0x37, 0, "Playlist 6", 0x26, 0x90),
 				];
 			}
-			console.log('> DBServer navigate to playlist id='+info.playlist.toString(16)+'');
 			var response_prerequest = Item40(r, 0, type, 0x05, menu.items.length);
+			console.log('> DBServer navigate to playlist id='+info.playlist.toString(16)+'');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
 		}
 		if(type==0x14){
-			console.log('> DBServer open sort menu');
 			var info = new Item14(data);
-			assertParsed(data, info);
 			console.log(info);
+			assertParsed(data, info);
 			var menu = state.menus[info.affectedMenu] = {};
 			menu.items = [
 				Item41(r, 1, 0x0c, 0, 0, "Default", 0x26, 0xa1),
@@ -474,14 +488,15 @@ function handleDBServerConnection(device, socket) {
 				Item41(r, 1, 0x0c, 0x37, 0, "Playlist 6", 0x26, 0x90),
 			];
 			var response_prerequest = Item40(r, 0, type, 0x06, menu.items.length);
+			console.log('> DBServer open sort menu');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
 		}
 		if(type==0x30){
 			var info = new Item30(data);
+			//console.log(info);
 			assertParsed(data, info);
-			console.log(info);
 			var menuLabels = {
 				1: 'mainmenu',
 				2: 'submenu',
@@ -489,11 +504,11 @@ function handleDBServerConnection(device, socket) {
 			}
 			var menu = state.menus[info.affectedMenu];
 			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
-			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
 			var response = menu.items.slice(info.offset, info.offset+6);
 			response.unshift(Item40(r, 0x01, 0x00, 0x01, 0));
 			response.push(Item42(r));
-			if(showOutgoing) console.log(response.map(formatBuf).join(''));
+			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
+			//if(showOutgoing) console.log(response.map(formatBuf).join(''));
 			socket.write(Buffer.concat(response));
 			return;
 		}
