@@ -1,0 +1,48 @@
+
+
+DBSERVER ICON TABLE
+
+00 = nothing
+01 = folder
+02 = disc (album title)
+03 = disc (same as above?)
+04 = music note (track title)
+05 = music note (same as above?)
+06 = disc in folder
+07 = person
+08 = stack of something
+09 = stack of something
+0a = 1/5 stars (numeric)
+0b = duration (numeric)
+0c = Eighth note with "C" (string)
+0d = BPM (numeric)
+0e = disc inside sleeve?
+0f = key: sharp/flat icon (string)
+10 = bps (numeric)
+11 = pie and calendar (numeric)
+12 = file (string)
+13 = circle
+14 = magenta circle
+15 = red circle
+16 = orange circle
+17 = yellow circle
+18 = green circle
+19 = cyan circle
+1a = blue circle
+1b = violet circle
+1c = circle
+1d =
+1e =
+1f =
+20 = circle
+23 = speech bubble
+24 = stack of stuff
+28 = person with star head
+30 = eighth note with "H"
+31 = red H-check hot cue (string)
+32 = plain H-check
+33 = orange flat-sharp symbol
+34 = green flat-sharp
+35 = nothing
+ef = nothing
+ff = nothing

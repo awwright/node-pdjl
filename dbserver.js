@@ -171,11 +171,13 @@ var showOutgoing = true;
 function Item40(r, responseBody, aaaa, bbbb, len){
 	// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
 	// aaaa seems to list whichever "method" was used by the request in byte 0xb except for 0x30 which is 0
+	var _x08 = (r>>8) & 0xff;
+	var _x09 = (r>>0) & 0xff;
 	var x0xx = responseBody;
 	var len0 = len>>8;
 	var len1 = len & 0xff;
 	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  r[0], r[1], 0x10, 0x40, x0xx, 0x0f, 0x02, 0x14,
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x40, x0xx, 0x0f, 0x02, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x11, 0x00, 0x00, aaaa, bbbb, 0x11, 0x00, 0x00,  len0, len1,
 	]);
@@ -189,50 +191,7 @@ function Item41(r, aaaa, bbbb, numeric, bpm, label, eeee, symbol, ffff, gggg, hh
 	iiii = iiii || 0;
 	sticky = sticky || '';
 
-	// 00 = nothing
-	// 01 = folder
-	// 02 = disc (album title)
-	// 03 = disc (same as above?)
-	// 04 = music note (track title)
-	// 05 = music note (same as above?)
-	// 06 = disc in folder
-	// 07 = person
-	// 08 = stack of something
-	// 09 = stack of something
-	// 0a = 1/5 stars (numeric)
-	// 0b = duration (numeric)
-	// 0c = Eighth note with "C" (string)
-	// 0d = BPM (numeric)
-	// 0e = disc inside sleeve?
-	// 0f = key: sharp/flat icon (string)
-	// 10 = bps (numeric)
-	// 11 = pie and calendar (numeric)
-	// 12 = file (string)
-	// 13 = circle
-	// 14 = magenta circle
-	// 15 = red circle
-	// 16 = orange circle
-	// 17 = yellow circle
-	// 18 = green circle
-	// 19 = cyan circle
-	// 1a = blue circle
-	// 1b = violet circle
-	// 1c = circle
-	// 1d =
-	// 1e =
-	// 1f =
-	// 20 = circle
-	// 23 = speech bubble
-	// 24 = stack of stuff
-	// 28 = person with star head
-	// 30 = eighth note with "H"
-	// 31 = red H-check hot cue (string)
-	// 32 = plain H-check
-	// 33 = orange flat-sharp symbol
-	// 34 = green flat-sharp
-	// 35 = nothing
-	// ef = nothing
-	// ff = nothing
+	// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
 	var symb = symbol;
 
 	// For some menu items, this provides a numeric argument e.g. beats per 100 minutes, or duration in minutes.
@@ -256,6 +215,9 @@ function Item41(r, aaaa, bbbb, numeric, bpm, label, eeee, symbol, ffff, gggg, hh
 	// 10 = (no request, shows "EMPTY")
 	// 11 = (x20-x30 request)
 	// 12 = Search, no submenu requests, shows blank submenu
+
+	var _x08 = (r>>8) & 0xff;
+	var _x09 = (r>>0) & 0xff;
 	var bbcc = (bpm>>8) & 0xff;
 	var bbdd = (bpm>>0) & 0xff;
 	var ccc0 = (numeric>>8) & 0xff;
@@ -288,9 +250,11 @@ function Item41(r, aaaa, bbbb, numeric, bpm, label, eeee, symbol, ffff, gggg, hh
 }
 
 function Item42(r){
+	var _x08 = (r>>8) & 0xff;
+	var _x09 = (r>>0) & 0xff;
 	var b = new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,
-		r[0], r[1], 0x10, 0x42, 0x01, 0x0f, 0x00, 0x14,
+		_x08, _x09, 0x10, 0x42, 0x01, 0x0f, 0x00, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	]);
@@ -349,7 +313,7 @@ function handleDBServerConnection(device, socket) {
 			console.error(data);
 			throw new Error('Invalid magic header');
 		}
-		var r = data.slice(0x8, 0x8+2); // Request ID
+		var r = (data[8]<<8) + (data[9]); // Request ID
 		var type = data[0xb]; // seems to be 0x{10,20,30,40,41,42}
 		var sourceMedia = data[0x23] || 0xff; // 2=SD, 3=USB
 		console.log('< DBServer type=x'+type.toString(16)+' media='+sourceMedia.toString(16));
