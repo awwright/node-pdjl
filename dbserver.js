@@ -4,6 +4,10 @@
 // Tag List
 // Tag List menu including Remove All Items?
 
+artBlob = require('fs').readFileSync('./art.jfif');
+var showIncoming = true;
+var showOutgoing = true;
+
 module.exports.formatBuf = formatBuf;
 function formatBuf(b){
 	var x = "";
@@ -198,23 +202,37 @@ Item30.prototype.toBuffer = function toBuffer(){
 	]);
 }
 
-artBlob = require('fs').readFileSync('./art.jfif');
-var showIncoming = true;
-var showOutgoing = true;
-
 module.exports.Item40 = Item40;
 function Item40(r, responseBody, aaaa, bbbb, len){
-	// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
+	if(r instanceof Buffer){
+		this.requestId = (data[8]<<8) + (data[9]);
+		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
+		this.responseBody = data[0x0c];
+		this._x23 = data[0x23];
+		this._x24 = data[0x24];
+		this.itemCount = (data[0x28]<<8) + (data[0x29]);
+	}else{
+		this.requestId = r;
+		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
+		this.responseBody = responseBody;
+		this._x23 = aaaa;
+		this._x24 = bbbb;
+		this.itemCount = len;
+	}
+}
+Item40.prototype.toBuffer = function toBuffer(){
 	// aaaa seems to list whichever "method" was used by the request in byte 0xb except for 0x30 which is 0
-	var _x08 = (r>>8) & 0xff;
-	var _x09 = (r>>0) & 0xff;
-	var x0xx = responseBody;
-	var len0 = len>>8;
-	var len1 = len & 0xff;
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var x0xx = this.responseBody;
+	var _x23 = this._x23;
+	var _x24 = this._x24;
+	var len0 = (this.itemCount>>8) & 0xff;
+	var len1 = (this.itemCount>>0) & 0xff;
 	return new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x40, x0xx, 0x0f, 0x02, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x00, 0x00, aaaa, bbbb, 0x11, 0x00, 0x00,  len0, len1,
+		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  len0, len1,
 	]);
 }
 
@@ -303,14 +321,21 @@ Item41.prototype.toBuffer = function toBuffer(){
 }
 
 module.exports.Item42 = Item42;
-function Item42(r){
-	var _x08 = (r>>8) & 0xff;
-	var _x09 = (r>>0) & 0xff;
+function Item42(data){
+	if(data instanceof Buffer){
+		this.requestId = (data[8]<<8) + (data[9]);
+	}else if(typeof data=='object'){
+		this.requestId = data.requestId;
+	}else{
+		this.requestId = data;
+	}
+}
+Item42.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
 	var b = new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,
-		_x08, _x09, 0x10, 0x42, 0x01, 0x0f, 0x00, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x42, 0x01, 0x0f, 0x00, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	]);
 	return b;
 }
@@ -427,7 +452,7 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
 				];
 			}
-			var response_prerequest = Item40(r, 0, type, 0x02, menu.items.length);
+			var response_prerequest = new Item40(r, 0, type, 0x02, menu.items.length).toBuffer();
 			console.log('> DBServer: navigate to device menu');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
@@ -475,7 +500,7 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x37, "Playlist 6"),
 				];
 			}
-			var response_prerequest = Item40(r, 0, type, 0x05, menu.items.length);
+			var response_prerequest = new Item40(r, 0, type, 0x05, menu.items.length).toBuffer();
 			console.log('> DBServer navigate to playlist id='+info.playlist.toString(16)+'');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
@@ -496,7 +521,7 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x8b, 6, "Key"),
 				new Item41(r, 0x92, 7, "Duration"),
 			];
-			var response_prerequest = Item40(r, 0, type, 0x00, menu.items);
+			var response_prerequest = new Item40(r, 0, type, 0x00, menu.items).toBuffer();
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
@@ -515,7 +540,7 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x90, 0x3d, "Playlist 5"),
 				new Item41(r, 0x90, 0x37, "Playlist 6"),
 			];
-			var response_prerequest = Item40(r, 0, type, 0x06, menu.items.length);
+			var response_prerequest = new Item40(r, 0, type, 0x06, menu.items.length).toBuffer();
 			console.log('> DBServer open sort menu');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
@@ -532,11 +557,10 @@ function handleDBServerConnection(device, socket) {
 			}
 			var menu = state.menus[info.affectedMenu];
 			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
-			var response = menu.items.slice(info.offset, info.offset+6).map(function(v){
-				return v.toBuffer();
-			});
-			response.unshift(Item40(r, 0x01, 0x00, 0x01, 0));
-			response.push(Item42(r));
+			var response = menu.items.slice(info.offset, info.offset+6);
+			response.unshift(new Item40(r, 0x01, 0x00, 0x01, 0));
+			response.push(new Item42(r));
+			response = response.map(function(v){ return v.toBuffer(); });
 			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
 			if(showOutgoing) console.log(response.map(formatBuf).join(''));
 			socket.write(Buffer.concat(response));
