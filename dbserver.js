@@ -4,6 +4,7 @@
 // Tag List
 // Tag List menu including Remove All Items?
 
+module.exports.formatBuf = formatBuf;
 function formatBuf(b){
 	var x = "";
 	for(var i=0; i<b.length; ){
@@ -20,6 +21,7 @@ function formatBuf(b){
 	return x+"\n";
 }
 
+module.exports.assertParsed = assertParsed;
 function assertParsed(data, info){
 	var backwards = info.toBuffer();
 	if(info.length!==data.length){
@@ -36,6 +38,7 @@ function assertParsed(data, info){
 	}
 }
 
+module.exports.Item10 = Item10;
 function Item10(data){
 	// This also seems to come in a number of different lengths
 	// This form is requested for:
@@ -87,6 +90,7 @@ Item10.prototype.toBuffer = function toBuffer(){
 	return b;
 }
 
+module.exports.Item11 = Item11;
 function Item11(data){
 	// This form seems to be called for:
 	// - Requesting root playlist (length=0x34)
@@ -129,6 +133,7 @@ Item11.prototype.toBuffer = function toBuffer(){
 }
 
 // This is sent to request the 'Sort' or maybe another pop-up menu
+module.exports.Item14 = Item14;
 function Item14(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
@@ -150,12 +155,14 @@ Item14.prototype.toBuffer = function toBuffer(){
 	]);
 }
 
+module.exports.Item22 = Item22;
 function Item22(data){
 }
 Item22.prototype.toBuffer = function toBuffer(){
 }
 
 // This is sent to request that a particular menu be rendered out to the client
+module.exports.Item30 = Item30;
 function Item30(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
@@ -195,6 +202,7 @@ artBlob = require('fs').readFileSync('./art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
 
+module.exports.Item40 = Item40;
 function Item40(r, responseBody, aaaa, bbbb, len){
 	// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
 	// aaaa seems to list whichever "method" was used by the request in byte 0xb except for 0x30 which is 0
@@ -210,6 +218,7 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 	]);
 }
 
+module.exports.Item41 = Item41;
 function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	if(requestId instanceof Buffer){
 		var data = requestId;
@@ -281,10 +290,10 @@ Item41.prototype.toBuffer = function toBuffer(){
 		0x00, 0x00, 0x11, 0x00, 0x00, ffff, symb, 0x11,  0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, gggg,
 		hhhh, 0x11, 0x00, 0x00, 0x00, iiii, 0x11, 0x00,  0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00,
 	]);
-	// Write first string
+	// Write up to first string
 	tpl.copy(buf, 0, 0, 0x34);
 	for(var i=0; i<this.label.length; i++) buf.writeUInt16BE(this.label.charCodeAt(i)||0, 0x34+i*2);
-	// Write second string
+	// Write up to second string
 	var start = 0x34+this.label.length*2;
 	tpl.copy(buf, start, 0x34, 0x40);
 	for(var i=0; i<sticky.length; i++) buf.writeUInt16BE(sticky.charCodeAt(i)||0, start+i*2+0xc);
@@ -293,6 +302,7 @@ Item41.prototype.toBuffer = function toBuffer(){
 	return buf;
 }
 
+module.exports.Item42 = Item42;
 function Item42(r){
 	var _x08 = (r>>8) & 0xff;
 	var _x09 = (r>>0) & 0xff;
@@ -527,7 +537,6 @@ function handleDBServerConnection(device, socket) {
 			});
 			response.unshift(Item40(r, 0x01, 0x00, 0x01, 0));
 			response.push(Item42(r));
-			console.log('RENDER MENU', response);
 			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
 			if(showOutgoing) console.log(response.map(formatBuf).join(''));
 			socket.write(Buffer.concat(response));
