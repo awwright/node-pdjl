@@ -57,7 +57,7 @@ module.exports.Item = {
 
 module.exports.parseData = parseData;
 function parseData(data){
-	console.log('Parse: ', data);
+	//console.log('Parse: ', data);
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
 	// The first packet that comes in on the connection always seems to be the handshake:
 	// the same five bytes in both directions, client first
@@ -332,6 +332,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		var labelLen = (data[0x32]<<8) + (data[0x33]) - 1; // subtract null terminator
 		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
 		this.symbol2 = data[0x45+offset-2];
+		this.numeric = (data[0x23]<<8) + (data[0x24]);
 		return;
 	}
 	for(var n in data) this[n]=data;
