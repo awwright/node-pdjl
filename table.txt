@@ -1,7 +1,7 @@
 
 
 DBSERVER ICON TABLE
-
+-------------------
 00 = nothing
 01 = folder
 02 = disc (album title)
@@ -46,3 +46,28 @@ DBSERVER ICON TABLE
 35 = nothing
 ef = nothing
 ff = nothing
+
+
+DBSERVER PLAYLIST TABLE
+-----------------------
+For some menu items, this provides a numeric argument e.g. beats per 100 minutes, or duration in minutes.
+For others, this specifies which submenu item it links to
+00 = always shows empty
+01 =
+02 = Mount/Artists
+03 = Mount/Albums
+04 = Mount/Tracks
+05 = (x11) Mount/Playlists
+06 = (x10-x30 request for submenu)
+07 = (x10-x30 request for submenu)
+08 = (x10-x30 request for submenu)
+09 = (x16 request)
+0a = (x10-x30 request for 0x0a)
+0b = (x13 request)
+0c = (x10-x30 request for 0x14)
+0d = (no request, blank)
+0e = (0x13 request)
+0f = (x10-x30 request for 0x0d)
+10 = (no request, shows "EMPTY")
+11 = (x20-x30 request)
+12 = Search, no submenu requests, shows blank submenu

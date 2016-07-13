@@ -324,7 +324,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	if(requestId instanceof Buffer){
 		var data = requestId;
 		var offset = (data[0x2d]<<8) + (data[0x2e]);
-		this.length = 0x5e + offset;
+		this.length = 0x60 + offset - 2; // 0x60 already includes null character
 		this.requestId = (data[8]<<8) + (data[9]);
 		this.symbol = data[0x46+offset-2];
 		this.numeric = (data[0x28]<<8) + (data[0x29]);
@@ -332,70 +332,59 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		var labelLen = (data[0x32]<<8) + (data[0x33]) - 1; // subtract null terminator
 		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
 		this.symbol2 = data[0x45+offset-2];
-		this.numeric = (data[0x23]<<8) + (data[0x24]);
-		return;
+		this.numeric2 = (data[0x23]<<8) + (data[0x24]);
+		this.label2 = '';
+		this._x4f_2 = (data[0x4f+offset-2]<<8) + (data[0x50+offset-2]);
+		this._x55 = data[0x55+offset-2];
+		this._x59 = data[0x59+offset-2];
+		this._x5f = data[0x5f+offset-2];
+	}else if(typeof requestId=='data'){
+		for(var n in data) this[n]=data;
+	}else{
+		this.length = 0x60 + label.length*2;
+		this.requestId = requestId;
+		this.symbol = symbol;
+		this.numeric = numeric;
+		this.label = label;
+		this.symbol2 = symbol2 || 0;
+		this.numeric2 = numeric2 || 0;
+		this.label2 = label2 || "";
+		this._x49_2 = 0; // dunno what this is
 	}
-	for(var n in data) this[n]=data;
-	this.length = 0x34 + label.length*2;
-	this.requestId = requestId;
-	this.symbol = symbol;
-	this.symbol2 = symbol2;
-	this.numeric = numeric;
-	this.label = label;
 }
 Item41.prototype.toBuffer = function toBuffer(){
-	var gggg = this.gggg || 0;
-	var hhhh = this.hhhh || 0;
 	var iiii = this.iiii || 0;
 	// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
-	var bpm = this.numeric2 || 0;
-	var sticky = this.label2 || '';
-
-
-	// For some menu items, this provides a numeric argument e.g. beats per 100 minutes, or duration in minutes.
-	// For others, this specifies which submenu item it links to
-	// 00 = always shows empty
-	// 01 =
-	// 02 = Mount/Artists
-	// 03 = Mount/Albums
-	// 04 = Mount/Tracks
-	// 05 = (x11) Mount/Playlists
-	// 06 = (x10-x30 request for submenu)
-	// 07 = (x10-x30 request for submenu)
-	// 08 = (x10-x30 request for submenu)
-	// 09 = (x16 request)
-	// 0a = (x10-x30 request for 0x0a)
-	// 0b = (x13 request)
-	// 0c = (x10-x30 request for 0x14)
-	// 0d = (no request, blank)
-	// 0e = (0x13 request)
-	// 0f = (x10-x30 request for 0x0d)
-	// 10 = (no request, shows "EMPTY")
-	// 11 = (x20-x30 request)
-	// 12 = Search, no submenu requests, shows blank submenu
 
 	var _x08 = (this.requestId>>8) & 0xff;
 	var _x09 = (this.requestId>>0) & 0xff;
-	var _x23 = (bpm>>8) & 0xff;
-	var _x24 = (bpm>>0) & 0xff;
+	var _x23 = (this.numeric2>>8) & 0xff;
+	var _x24 = (this.numeric2>>0) & 0xff;
 	var _x28 = (this.numeric>>8) & 0xff;
 	var _x29 = (this.numeric>>0) & 0xff;
+	var size = this.label.length*2 + 2;
+	var _x2d = (size<<8) & 0xff;
+	var _x2e = (size<<0) & 0xff;
 	var _x45 = this.symbol2 || 0; // Icon for second column
 	var _x46 = this.symbol;
-	var size = this.label.length*2 + 2;
+	var _x4f = (this._x4f_2>>8) & 0xff;
+	var _x50 = (this._x4f_2>>0) & 0xff;
+	var _x55 = this._x55;
+	var _x59 = this._x59;
+	var _x5f = this._x5f;
 	var len0 = (this.label.length+1) >> 8;
 	var len1 = (this.label.length+1) & 0xff;
-	var lem0 = (sticky.length+1) >> 8;
-	var lem1 = (sticky.length+1) & 0xff;
+	var lem0 = (this.label2.length+1) >> 8;
+	var lem1 = (this.label2.length+1) & 0xff;
 	var buf = new Buffer(0x60+this.label.length*2);
 	buf.fill();
 	var tpl = new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x41, 0x01, 0x0f, 0x0c, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x02,  0x06, 0x02, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, 0x00, size, 0x26,
+		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, _x2d, _x2e, 0x26,
 		0x00, 0x00, len0, len1, 0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x02, 0x26, 0x00, 0x00, lem0, lem1,
-		0x00, 0x00, 0x11, 0x00, 0x00, _x45, _x46, 0x11,  0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, gggg,
-		hhhh, 0x11, 0x00, 0x00, 0x00, iiii, 0x11, 0x00,  0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x11, 0x00, 0x00, _x45, _x46, 0x11,  0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, _x4f,
+		_x50, 0x11, 0x00, 0x00, 0x00, _x55, 0x11, 0x00,  0x00, _x59, 0x00, 0x11, 0x00, 0x00, 0x00, _x5f,
 	]);
 	// Write up to first string
 	tpl.copy(buf, 0, 0, 0x34);
@@ -403,9 +392,9 @@ Item41.prototype.toBuffer = function toBuffer(){
 	// Write up to second string
 	var start = 0x34+this.label.length*2;
 	tpl.copy(buf, start, 0x34, 0x40);
-	for(var i=0; i<sticky.length; i++) buf.writeUInt16BE(sticky.charCodeAt(i)||0, start+i*2+0xc);
+	for(var i=0; i<this.label2.length; i++) buf.writeUInt16BE(this.label2.charCodeAt(i)||0, start+i*2+0xc);
 	// Write to end
-	tpl.copy(buf, start+0xc+sticky.length*2, 0x40, 0x60);
+	tpl.copy(buf, start+0xc+this.label2.length*2, 0x40, 0x60);
 	return buf;
 }
 
