@@ -9,8 +9,8 @@ var contents = fs.readFileSync(filepath, 'utf-8');
 // Strip comments
 //contents = contents.replace(/\s*--.*$/gm, '');
 // Strip byte offset and ascii
-contents = contents.replace(/^    ........  /gm, '>');
-contents = contents.replace(/^........  /gm, '<');
+contents = contents.replace(/^    [0-9A-F]{8}  /gm, '>');
+contents = contents.replace(/^[0-9A-F]{8}  /gm, '<');
 contents = contents.replace(/^(.(..  ?){1,16}) .+$/gm, '$1');
 contents = contents.replace(/ +$/gm, '');
 contents = contents.split(/\n/g);
