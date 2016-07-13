@@ -24,6 +24,9 @@ function Section(direction){
 function pushSection(localDirection){
 	if(currentSection.direction=='<') console.log('-- Request');
 	else if(currentSection.direction=='>') console.log('-- Response');
+	currentSection.comments.forEach(function(w){
+		console.log(w);
+	});
 	var hex = currentSection.lines.join(' ').replace(/ /g,'');
 	currentSection.dataStr = hex;
 	currentSection.data = new Buffer(hex, 'hex');
@@ -34,22 +37,15 @@ function pushSection(localDirection){
 		item.original = currentSection.data.slice(i, i+item.length);
 		i += item.length;
 		currentSection.packets.push(item);
+		console.log(item);
+//		try {
+			DBServer.assertParsed(item.original, item);
+//		}catch(e){
+//			console.log(e.toString());
+//		}
 	}
 	sectionList.push(currentSection);
-	
-	currentSection.comments.forEach(function(w){
-		console.log(w);
-	});
-	currentSection.packets.forEach(function(w){
-		console.log(w);
-		try {
-			DBServer.assertParsed(w.original, w);
-		}catch(e){
-			console.log(e.toString());
-		}
-	});
 	console.log('\n');
-	
 	currentSection = new Section(localDirection);
 }
 
