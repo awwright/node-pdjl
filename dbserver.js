@@ -8,6 +8,7 @@ artBlob = require('fs').readFileSync('./art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
 
+
 module.exports.formatBuf = formatBuf;
 function formatBuf(b){
 	var x = "";
@@ -29,18 +30,71 @@ module.exports.assertParsed = assertParsed;
 function assertParsed(data, info){
 	var backwards = info.toBuffer();
 	if(info.length!==data.length){
-		console.error('Incoming/generated item length mismatch!');
-		console.error(formatBuf(data));
-		console.error(formatBuf(backwards));
+//		console.error('Incoming/generated item length mismatch!');
+//		console.error(formatBuf(data));
+//		console.error(formatBuf(backwards));
 		throw new Error('Incoming/generated length mismatch');
 	}
 	if(backwards.compare(data)){
-		console.error('Incoming/generated item data mismatch!');
-		console.error(formatBuf(data));
-		console.error(formatBuf(backwards));
+//		console.error('Incoming/generated item data mismatch!');
+//		console.error(formatBuf(data));
+//		console.error(formatBuf(backwards));
 		throw new Error('Incoming/generated data mismatch');
 	}
 }
+
+module.exports.Item = {
+	"10": Item10,
+	"11": Item11,
+	"14": Item14,
+	"20": Item20,
+	"22": Item22,
+	"30": Item30,
+	"40": Item40,
+	"41": Item41,
+	"42": Item42,
+}
+
+module.exports.parseData = parseData;
+function parseData(data){
+	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
+	// The first packet that comes in on the connection always seems to be the handshake:
+	// the same five bytes in both directions, client first
+	var magic_handshake = new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
+	if(data.slice(0,5).compare(magic_handshake)==0){
+		return new ItemHandshake(data);
+	}
+	// The second packet that comes in seems to be this "hello" packet, the same 0x2a bytes except for the last one
+	var incoming_hello = new Buffer([ 0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff ]);
+	if(data.slice(0,8).compare(incoming_hello)==0){
+		return new ItemHello(data);
+	}
+	var itemType = data[0x0b];
+	var ItemStruct = module.exports.Item[itemType.toString(16)];
+	if(!ItemStruct) throw new Error('Unknown item type '+itemType.toString(16));
+	return new ItemStruct(data);
+}
+
+function ItemHandshake(){
+	this.length = 5;
+}
+ItemHandshake.prototype.toBuffer = function toBuffer(){
+	return new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
+}
+
+
+function ItemHello(data){
+	this.length = 0x2a;
+	this.channel = data[0x24];
+}
+ItemHello.prototype.toBuffer = function toBuffer(){
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,  0xff, 0xfe, 0x10, 0x00, 0x00, 0x0f, 0x01, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x00, 0x00, 0x00, 0x03,
+	]);
+}
+
 
 module.exports.Item10 = Item10;
 function Item10(data){
@@ -159,6 +213,14 @@ Item14.prototype.toBuffer = function toBuffer(){
 	]);
 }
 
+// Album art request
+module.exports.Item20 = Item20;
+function Item20(data){
+}
+Item20.prototype.toBuffer = function toBuffer(){
+}
+
+
 module.exports.Item22 = Item22;
 function Item22(data){
 }
@@ -205,6 +267,7 @@ Item30.prototype.toBuffer = function toBuffer(){
 module.exports.Item40 = Item40;
 function Item40(r, responseBody, aaaa, bbbb, len){
 	if(r instanceof Buffer){
+		var data = r;
 		this.requestId = (data[8]<<8) + (data[9]);
 		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
 		this.responseBody = data[0x0c];
