@@ -9,8 +9,8 @@ var contents = fs.readFileSync(filepath, 'utf-8');
 // Strip comments
 //contents = contents.replace(/\s*--.*$/gm, '');
 // Strip byte offset and ascii
-contents = contents.replace(/^    [0-9A-F]{8}  /gm, '>');
-contents = contents.replace(/^[0-9A-F]{8}  /gm, '<');
+contents = contents.replace(/^    [0-9A-F]{8}  /gm, '<');
+contents = contents.replace(/^[0-9A-F]{8}  /gm, '>');
 contents = contents.replace(/^(.(..  ?){1,16}) .+$/gm, '$1');
 contents = contents.replace(/ +$/gm, '');
 contents = contents.split(/\n/g);
@@ -22,8 +22,8 @@ function Section(direction){
 	this.data = null;
 }
 function pushSection(localDirection){
-	if(currentSection.direction=='<') console.log('-- Request');
-	else if(currentSection.direction=='>') console.log('-- Response');
+	if(currentSection.direction=='>') console.log('-- Request');
+	else if(currentSection.direction=='<') console.log('-- Response');
 	var hex = currentSection.lines.join(' ').replace(/ /g,'');
 	currentSection.dataStr = hex;
 	currentSection.data = new Buffer(hex, 'hex');
@@ -47,14 +47,14 @@ function pushSection(localDirection){
 }
 
 var sectionList = [];
-var currentSection = new Section('<');
+var currentSection = new Section('>');
 
 contents.forEach(function(v){
 	var localDirection = v[0];
 	if(!v.length){
 		// Blank line? reset to a request
-		if('<'!=currentSection.direction){
-			pushSection('<');
+		if('>'!=currentSection.direction){
+			pushSection('>');
 		}
 		console.log('');
 		return;
