@@ -405,10 +405,8 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		var offset = (data[0x2d]<<8) + (data[0x2e]);
 		var labelLen = (data[0x32]<<8) + (data[0x33]) - 1; // subtract null terminator
 		var start1 = labelLen*2;
-		console.log('start1', start1.toString(16));
 		var label2Len = (data[0x3e+start1]<<8) + (data[0x3f+start1]) - 1; // subtract null terminator
 		var start2 = labelLen*2 + label2Len*2;
-		console.log('start2', start2.toString(16));
 		this.length = 0x60 + offset - 2 + label2Len*2; // 0x60 already includes null character
 		// collect data
 		this.requestId = (data[8]<<8) + (data[9]);
@@ -419,7 +417,9 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.label = '';
 		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
 		this.label2 = '';
+		this._x3a = data[0x3a+start1]; // 0x02 normally, observed 0x2a with a second column view
 		for(var i=0; i<label2Len; i++) this.label2 += String.fromCharCode(data.readUInt16BE(0x40+start1+i*2));
+		this._x48 = data[0x48+start2]; // Seems to be set to 0x01 when using the second column
 		this._x4f_2 = (data[0x4f+start2]<<8) + (data[0x50+start2]);
 		this._x55 = data[0x55+start2];
 		this._x59 = data[0x59+start2];
@@ -451,8 +451,10 @@ Item41.prototype.toBuffer = function toBuffer(){
 	var size = this.label.length*2 + 2;
 	var _x2d = (size<<8) & 0xff;
 	var _x2e = (size<<0) & 0xff;
+	var _x3a = this._x3a;
 	var _x45 = this.symbol2 || 0; // Icon for second column
 	var _x46 = this.symbol;
+	var _x48 = this._x48;
 	var _x4f = (this._x4f_2>>8) & 0xff;
 	var _x50 = (this._x4f_2>>0) & 0xff;
 	var _x55 = this._x55;
@@ -468,8 +470,8 @@ Item41.prototype.toBuffer = function toBuffer(){
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x41, 0x01, 0x0f, 0x0c, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x02,  0x06, 0x02, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
 		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, _x2d, _x2e, 0x26,
-		0x00, 0x00, len0, len1, 0x00, 0x00, 0x11, 0x00,  0x00, 0x00, 0x02, 0x26, 0x00, 0x00, lem0, lem1,
-		0x00, 0x00, 0x11, 0x00, 0x00, _x45, _x46, 0x11,  0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, _x4f,
+		0x00, 0x00, len0, len1, 0x00, 0x00, 0x11, 0x00,  0x00, 0x00, _x3a, 0x26, 0x00, 0x00, lem0, lem1,
+		0x00, 0x00, 0x11, 0x00, 0x00, _x45, _x46, 0x11,  _x48, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, _x4f,
 		_x50, 0x11, 0x00, 0x00, 0x00, _x55, 0x11, 0x00,  0x00, _x59, 0x00, 0x11, 0x00, 0x00, 0x00, _x5f,
 	]);
 	// Write up to first string
