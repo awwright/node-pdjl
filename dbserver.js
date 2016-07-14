@@ -70,10 +70,12 @@ function parseData(data){
 	// The second packet that comes in seems to be this "hello" packet, the same 0x2a bytes except for the last one
 	var incoming_hello = new Buffer([ 0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff ]);
 	if(data.slice(0,8).compare(incoming_hello)==0){
-		if(itemType){
+		if(itemType==0x40){
 			return new ItemSup(data);
-		}else{
+		}else if(itemType==0x00){
 			return new ItemHello(data);
+		}else{
+			throw new Error('this is not my cat');
 		}
 	}
 	var ItemStruct = module.exports.Item[itemType.toString(16)];
@@ -91,7 +93,13 @@ ItemHandshake.prototype.toBuffer = function toBuffer(){
 
 function ItemHello(data){
 	this.length = 0x25;
-	this.channel = data[0x24];
+	if(data instanceof Buffer){
+		this.channel = data[0x24];
+	}else if(typeof data=='object'){
+		this.channel = data.channel;
+	}else{
+		this.channel = data;
+	}
 }
 ItemHello.prototype.toBuffer = function toBuffer(){
 	return new Buffer([
@@ -104,12 +112,20 @@ ItemHello.prototype.toBuffer = function toBuffer(){
 
 function ItemSup(data){
 	this.length = 0x2a;
+	if(data instanceof Buffer){
+		this.channel = data[0x29];
+	}else if(typeof data=='object'){
+		this.channel = data.channel;
+	}else{
+		this.channel = data;
+	}
 }
 ItemSup.prototype.toBuffer = function toBuffer(){
+	var _x29 = this.channel;
 	return new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,  0xff, 0xfe, 0x10, 0x40, 0x00, 0x0f, 0x02, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00,  0x00, 0x11,
+		0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00,  0x00, _x29,
 	]);
 }
 
@@ -180,7 +196,7 @@ function Item11(data){
 		// 0x34 0x06 0x06 0x01 (returns main track listing)
 		//this.length = data[0x33] ? 0x34 : 0x2f;
 		this.length = 0x34;
-		this.method = 0x10;
+		this.method = 0x11;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this._x16 = data[0x16];
 		this._x17 = data[0x17];
@@ -218,7 +234,7 @@ module.exports.Item14 = Item14;
 function Item14(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
-		this.method = 0x10;
+		this.method = 0x14;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this.affectedMenu = data[0x22];
 	}else{
@@ -243,7 +259,7 @@ module.exports.Item20 = Item20;
 function Item20(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
-		this.method = 0x2a;
+		this.method = 0x20;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this.resourceId = (data[0x28]<<8) + (data[0x29]);
 	}else{
@@ -517,9 +533,13 @@ function handleDBServerConnection(device, socket) {
 	socket.on('data', function(newdata) {
 		state.length += newdata.length;
 		var data = state.buffer.length ? state.buffer.concat(newdata) : newdata;
+		console.log('< DBServer incoming request');
+		console.log(formatBuf(data));
 		var info = parseData(data);
+		console.log('  DBServer '+info.constructor.name);
+		var r = info.requestId;
+		var type = info.method;
 		assertParsed(data, info);
-		console.log('< DBServer '+info.constructor.name);
 		console.log(info);
 
 		var magic_handshake = new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
@@ -540,7 +560,7 @@ function handleDBServerConnection(device, socket) {
 			console.log('  chan='+info.channel);
 			// Form the response
 			console.log('> DBServer ItemSup');
-			socket.write(new ItemSup().toBuffer());
+			socket.write(new ItemSup(device.channel).toBuffer());
 			return;
 		}
 		// All of the other requests follow this magic pattern
@@ -551,8 +571,9 @@ function handleDBServerConnection(device, socket) {
 			throw new Error('Invalid magic header');
 		}
 		if(info instanceof Item10){
+			console.log('  navigate to device menu');
 			var menu = state.menus[info.affectedMenu] = {};
-			menu.method = type;
+			menu.method = info.method;
 			menu.listing = info.listing;
 			menu.playlist = 0; // undefined
 			if(menu.listing==0x00){
@@ -597,7 +618,7 @@ function handleDBServerConnection(device, socket) {
 				];
 			}
 			var response_prerequest = new Item40(r, 0, type, 0x02, menu.items.length).toBuffer();
-			console.log('> DBServer: navigate to device menu');
+			console.log('> DBServer do navigate');
 			if(showOutgoing) console.log(formatBuf(response_prerequest));
 			socket.write(response_prerequest);
 			return;
@@ -667,7 +688,7 @@ function handleDBServerConnection(device, socket) {
 		if(info instanceof Item20){
 			var affectedMenu = data[0x22];
 			var menu = state.menus[affectedMenu] = {};
-			menu.method = type;
+			menu.method = info.method;
 			menu.listing = data[0x0c];
 			console.log('> DBServer navigate to tracks listing='+menu.listing.toString(16));
 			menu.items = [
