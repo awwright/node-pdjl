@@ -419,7 +419,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.label2 = '';
 		this._x3a = data[0x3a+start1]; // 0x02 normally, observed 0x2a with a second column view
 		for(var i=0; i<label2Len; i++) this.label2 += String.fromCharCode(data.readUInt16BE(0x40+start1+i*2));
-		this._x48 = data[0x48+start2]; // Seems to be set to 0x01 when using the second column
+		this._x48 = data[0x48+start2]; // 0x00 normally, seems to be set to 0x01 when using the second column
 		this._x4f_2 = (data[0x4f+start2]<<8) + (data[0x50+start2]);
 		this._x55 = data[0x55+start2];
 		this._x59 = data[0x59+start2];

@@ -69,7 +69,3 @@ contents.forEach(function(v){
 });
 pushSection();
 
-sectionList.forEach(function(v){
-	v.packets.forEach(function(w){ console.log(DBServer.formatBuf(w)); });
-});
-
