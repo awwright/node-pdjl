@@ -8,7 +8,6 @@ artBlob = require('fs').readFileSync('./art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
 
-
 module.exports.formatBuf = formatBuf;
 function formatBuf(b){
 	var x = "";
@@ -75,6 +74,7 @@ function parseData(data){
 		}else if(itemType==0x00){
 			return new ItemHello(data);
 		}else{
+			// itemType==0x01 sometimes if there's a protocol problem
 			throw new Error('this is not my cat');
 		}
 	}
@@ -374,6 +374,9 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 		this.requestId = r;
 		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
 		this.responseBody = responseBody;
+		this._x0e = 0x02;
+		this._x16 = 0;
+		this._x17 = 0;
 		this._x23 = aaaa;
 		this._x24 = bbbb;
 		this.itemCount = len;
@@ -448,6 +451,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.symbol = symbol;
 		this.numeric = numeric;
 		this.label = label;
+		this._x3a = 2;
 		this.symbol2 = symbol2 || 0;
 		this.numeric2 = numeric2 || 0;
 		this.label2 = label2 || "";
@@ -530,6 +534,12 @@ function handleDBServerConnection(device, socket) {
 	state.initialized = 0;
 	state.buffer = new Buffer(0); // Hold onto packets while they're incomplete
 	state.menus = {}
+	function sendItems(items){
+		socket.write(Buffer.concat(items.map(function(v){
+			console.log(v);
+			return v.toBuffer();
+		})));
+	}
 	socket.on('data', function(newdata) {
 		state.length += newdata.length;
 		var data = state.buffer.length ? state.buffer.concat(newdata) : newdata;
@@ -560,7 +570,7 @@ function handleDBServerConnection(device, socket) {
 			console.log('  chan='+info.channel);
 			// Form the response
 			console.log('> DBServer ItemSup');
-			socket.write(new ItemSup(device.channel).toBuffer());
+			sendItems([new ItemSup(device.channel)]);
 			return;
 		}
 		// All of the other requests follow this magic pattern
@@ -578,12 +588,14 @@ function handleDBServerConnection(device, socket) {
 			menu.playlist = 0; // undefined
 			if(menu.listing==0x00){
 				menu.items = [
-					new Item41(r, 0x90, 0x3, "\ufffaArtists\ufffb"),
-					new Item41(r, 0x90, 0x2, "\ufffaAlbums\ufffb"),
-					new Item41(r, 0x83, 0x4, "\ufffaTracks\ufffb"),
-					new Item41(r, 0x90, 0xc, "\ufffaKey\ufffb"),
-					new Item41(r, 0x90, 0x5, "\ufffaPlaylist\ufffb"),
-					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
+					new Item41(r, 0x81, 0x2, "\ufffaARTIST\ufffb"),
+					new Item41(r, 0x90, 0x3, "\ufffaALBUM\ufffb"),
+					new Item41(r, 0x83, 0x4, "\ufffaTRACK\ufffb"),
+					new Item41(r, 0x8b, 0xc, "\ufffaKEY\ufffb"),
+					new Item41(r, 0x84, 0x5, "\ufffaPLAYLIST\ufffb"),
+					new Item41(r, 0x95, 0x16, "\ufffaHISTORY\ufffb"),
+					new Item41(r, 0x90, 0x16, "\ufffaSEARCH\ufffb"),
+					new Item41(r, 0x90, 0x16, "\ufffaHOT CUE BANK\ufffb"),
 				];
 			}else if(menu.listing==0x02){
 				// List all the albums
@@ -617,10 +629,10 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
 				];
 			}
-			var response_prerequest = new Item40(r, 0, type, 0x02, menu.items.length).toBuffer();
+			var response_prerequest = new Item40(r, 0, type, 0x02, menu.items.length);
+			console.log(response_prerequest);
 			console.log('> DBServer do navigate');
-			if(showOutgoing) console.log(formatBuf(response_prerequest));
-			socket.write(response_prerequest);
+			sendItems([response_prerequest]);
 			return;
 		}
 		if(info instanceof Item11){
@@ -662,10 +674,9 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x37, "Playlist 6"),
 				];
 			}
-			var response_prerequest = new Item40(r, 0, type, 0x05, menu.items.length).toBuffer();
+			var response_prerequest = new Item40(r, 0, type, 0x05, menu.items.length);
 			console.log('> DBServer navigate to playlist id='+info.playlist.toString(16)+'');
-			if(showOutgoing) console.log(formatBuf(response_prerequest));
-			socket.write(response_prerequest);
+			sendItems([response_prerequest]);
 			return;
 		}
 		if(info instanceof Item14){
@@ -680,9 +691,8 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x8b, 6, "Key"),
 				new Item41(r, 0x92, 7, "Duration"),
 			];
-			var response_prerequest = new Item40(r, 0, type, 0x00, menu.items).toBuffer();
-			if(showOutgoing) console.log(formatBuf(response_prerequest));
-			socket.write(response_prerequest);
+			var response_prerequest = new Item40(r, 0, type, 0x00, menu.items);
+			sendItems([response_prerequest]);
 			return;
 		}
 		if(info instanceof Item20){
@@ -699,10 +709,9 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x90, 0x3d, "Playlist 5"),
 				new Item41(r, 0x90, 0x37, "Playlist 6"),
 			];
-			var response_prerequest = new Item40(r, 0, type, 0x06, menu.items.length).toBuffer();
+			var response_prerequest = new Item40(r, 0, type, 0x06, menu.items.length);
 			console.log('> DBServer open sort menu');
-			if(showOutgoing) console.log(formatBuf(response_prerequest));
-			socket.write(response_prerequest);
+			sendItems([response_prerequest]);
 			return;
 		}
 		if(info instanceof Item30){
@@ -714,12 +723,11 @@ function handleDBServerConnection(device, socket) {
 			var menu = state.menus[info.affectedMenu];
 			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
 			var response = menu.items.slice(info.offset, info.offset+6);
+			response.forEach(function(v){ v.requestId = info.requestId; });
 			response.unshift(new Item40(r, 0x01, 0x00, 0x01, 0));
 			response.push(new Item42(r));
-			response = response.map(function(v){ return v.toBuffer(); });
 			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
-			if(showOutgoing) console.log(response.map(formatBuf).join(''));
-			socket.write(Buffer.concat(response));
+			sendItems(response);
 			return;
 		}
 		if(0){
