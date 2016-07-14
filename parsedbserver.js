@@ -52,6 +52,10 @@ var currentSection = new Section('<');
 contents.forEach(function(v){
 	var localDirection = v[0];
 	if(!v.length){
+		// Blank line? reset to a request
+		if('<'!=currentSection.direction){
+			pushSection('<');
+		}
 		console.log('');
 		return;
 	}else if(localDirection=='-' &&  v[1]=='-'){
