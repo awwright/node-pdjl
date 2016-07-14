@@ -508,7 +508,7 @@ Item42.prototype.toBuffer = function toBuffer(){
 }
 
 function handleDBServerConnection(device, socket) {
-	console.log('NEW CONNECTION '+socket.localPort);
+	console.log('DBServer: New connection at '+socket.localPort);
 	var state = socket.state = {};
 	state.length = 0;
 	state.initialized = 0;
@@ -517,39 +517,30 @@ function handleDBServerConnection(device, socket) {
 	socket.on('data', function(newdata) {
 		state.length += newdata.length;
 		var data = state.buffer.length ? state.buffer.concat(newdata) : newdata;
-		// The first packet that comes in on the connection always seems to be the handshake:
-		// the same five bytes in both directions, client first
+		var info = parseData(data);
+		assertParsed(data, info);
+		console.log('< DBServer '+info.constructor.name);
+		console.log(info);
+
 		var magic_handshake = new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
 		if(state.initialized===0){
-			if(data.compare(magic_handshake)!=0){
-				console.error(magic_handshake);
-				console.error(data);
-				throw new Error('Connection init handshake: Invalid handshake');
+			// The first packet that comes in on the connection always seems to be the handshake:
+			// the same five bytes in both directions, client first
+			if(info instanceof ItemHandshake){
+				console.log('> DBServer ItemHandshake');
+				socket.write(new ItemHandshake().toBuffer());
+			}else{
+				throw new Error('Invalid handshake');
 			}
-			console.log('< DBServer handshake');
-			// This 'Hello' always seems to be the same five bytes, in both directions: 0x11.00.00.00.01
-			socket.write(magic_handshake);
 			state.initialized = 1;
 			return;
 		}
 		// The second packet that comes in seems to be this "hello" packet, the same 0x2a bytes except for the last one
-		var incoming_hello = new Buffer([ 0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff ]);
-		if(data.slice(0,8).compare(incoming_hello)==0){
-			var incoming_hello_chan = data[0x24];
-			console.log('< hello chan='+incoming_hello_chan);
-			console.log(formatBuf(data));
+		if(info instanceof ItemHello){
+			console.log('  chan='+info.channel);
 			// Form the response
-			console.log('> no I do not like your hat');
-			var chan = device.channel;
-			var response_hello = new Buffer([
-				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,
-				0xff, 0xfe, 0x10, 0x40, 0x00, 0x0f, 0x02, 0x14,
-				0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,
-				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-				0x11, 0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00,
-				0x00, chan ]);
-			if(showOutgoing) console.log(formatBuf(response_hello));
-			socket.write(response_hello);
+			console.log('> DBServer ItemSup');
+			socket.write(new ItemSup().toBuffer());
 			return;
 		}
 		// All of the other requests follow this magic pattern
@@ -559,21 +550,7 @@ function handleDBServerConnection(device, socket) {
 			console.error(data);
 			throw new Error('Invalid magic header');
 		}
-		var r = (data[8]<<8) + (data[9]); // Request ID
-		var type = data[0xb]; // seems to be 0x{10,20,30,40,41,42}
-		var sourceMedia = data[0x23] || 0xff; // 2=SD, 3=USB
-		console.log('< DBServer type=x'+type.toString(16)+' media='+sourceMedia.toString(16));
-		console.log(formatBuf(data));
-		// This packet seems to control scrolling information
-		if(type==0x00){
-			console.log('< DBServer: do what now?');
-			return;
-		}
-		if(type==0x10){
-			var info = new Item10(data);
-			// Well this is causing no end of problems for my theories
-			console.log(info);
-			assertParsed(data, info);
+		if(info instanceof Item10){
 			var menu = state.menus[info.affectedMenu] = {};
 			menu.method = type;
 			menu.listing = info.listing;
@@ -625,10 +602,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response_prerequest);
 			return;
 		}
-		if(type==0x11){
-			var info = new Item11(data);
-			console.log(info);
-			assertParsed(data, info);
+		if(info instanceof Item11){
 			var menu = state.menus[info.affectedMenu] = {};
 			if(info.playlist==0x40){
 				// Trance Collections folder
@@ -673,10 +647,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response_prerequest);
 			return;
 		}
-		if(type==0x14){
-			var info = new Item14(data);
-			console.log(info);
-			assertParsed(data, info);
+		if(info instanceof Item14){
 			var menu = state.menus[info.affectedMenu] = {};
 			menu.items = [
 				new Item41(r, 0xa1, 0, "Default"),
@@ -693,7 +664,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response_prerequest);
 			return;
 		}
-		if(type==0x20){
+		if(info instanceof Item20){
 			var affectedMenu = data[0x22];
 			var menu = state.menus[affectedMenu] = {};
 			menu.method = type;
@@ -713,10 +684,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response_prerequest);
 			return;
 		}
-		if(type==0x30){
-			var info = new Item30(data);
-			//console.log(info);
-			assertParsed(data, info);
+		if(info instanceof Item30){
 			var menuLabels = {
 				1: 'mainmenu',
 				2: 'submenu',
@@ -744,7 +712,7 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x23, 1, "Comment"),
 			];
 		}
-		if(type==0x3e){
+		if(info instanceof Item3e){
 			console.log('> DBServer usb-query');
 			var response = Buffer([
 				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  0x00, 0x47, 0x10, 0x4b, 0x02, 0x0f, 0x04, 0x14,
@@ -756,7 +724,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response);
 			return;
 		}
-		if(type==0x40){
+		if(info instanceof Item40){
 			console.log('> DBServer album art request');
 			var len0 = (artBlob.length>>8) & 0xff;
 			var len1 = (artBlob.length>>0) & 0xff;
@@ -773,7 +741,7 @@ function handleDBServerConnection(device, socket) {
 		throw new Error('Unknown incoming data/request '+type.toString(16));
 	});
 	socket.on('end', function() {
-		console.log('Connection closed');
+		console.log('DBServer: Connection closed');
 	});
 	// start the flow of data, discarding it.
 	socket.resume();
