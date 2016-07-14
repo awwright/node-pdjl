@@ -401,21 +401,29 @@ module.exports.Item41 = Item41;
 function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	if(requestId instanceof Buffer){
 		var data = requestId;
+		// lots of offsets to calculate
 		var offset = (data[0x2d]<<8) + (data[0x2e]);
-		this.length = 0x60 + offset - 2; // 0x60 already includes null character
-		this.requestId = (data[8]<<8) + (data[9]);
-		this.symbol = data[0x46+offset-2];
-		this.numeric = (data[0x28]<<8) + (data[0x29]);
-		this.label = '';
 		var labelLen = (data[0x32]<<8) + (data[0x33]) - 1; // subtract null terminator
-		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
-		this.symbol2 = data[0x45+offset-2];
+		var start1 = labelLen*2;
+		console.log('start1', start1.toString(16));
+		var label2Len = (data[0x3e+start1]<<8) + (data[0x3f+start1]) - 1; // subtract null terminator
+		var start2 = labelLen*2 + label2Len*2;
+		console.log('start2', start2.toString(16));
+		this.length = 0x60 + offset - 2 + label2Len*2; // 0x60 already includes null character
+		// collect data
+		this.requestId = (data[8]<<8) + (data[9]);
 		this.numeric2 = (data[0x23]<<8) + (data[0x24]);
+		this.numeric = (data[0x28]<<8) + (data[0x29]);
+		this.symbol2 = data[0x45+start2];
+		this.symbol = data[0x46+start2];
+		this.label = '';
+		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
 		this.label2 = '';
-		this._x4f_2 = (data[0x4f+offset-2]<<8) + (data[0x50+offset-2]);
-		this._x55 = data[0x55+offset-2];
-		this._x59 = data[0x59+offset-2];
-		this._x5f = data[0x5f+offset-2];
+		for(var i=0; i<label2Len; i++) this.label2 += String.fromCharCode(data.readUInt16BE(0x40+start1+i*2));
+		this._x4f_2 = (data[0x4f+start2]<<8) + (data[0x50+start2]);
+		this._x55 = data[0x55+start2];
+		this._x59 = data[0x59+start2];
+		this._x5f = data[0x5f+start2];
 	}else if(typeof requestId=='data'){
 		for(var n in data) this[n]=data;
 	}else{
@@ -454,7 +462,7 @@ Item41.prototype.toBuffer = function toBuffer(){
 	var len1 = (this.label.length+1) & 0xff;
 	var lem0 = (this.label2.length+1) >> 8;
 	var lem1 = (this.label2.length+1) & 0xff;
-	var buf = new Buffer(0x60+this.label.length*2);
+	var buf = new Buffer(0x60 + this.label.length*2 + this.label2.length*2);
 	buf.fill();
 	var tpl = new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x41, 0x01, 0x0f, 0x0c, 0x14,
