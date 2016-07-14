@@ -24,9 +24,6 @@ function Section(direction){
 function pushSection(localDirection){
 	if(currentSection.direction=='<') console.log('-- Request');
 	else if(currentSection.direction=='>') console.log('-- Response');
-	currentSection.comments.forEach(function(w){
-		console.log(w);
-	});
 	var hex = currentSection.lines.join(' ').replace(/ /g,'');
 	currentSection.dataStr = hex;
 	currentSection.data = new Buffer(hex, 'hex');
@@ -55,9 +52,11 @@ var currentSection = new Section('<');
 contents.forEach(function(v){
 	var localDirection = v[0];
 	if(!v.length){
+		console.log('');
 		return;
 	}else if(localDirection=='-' &&  v[1]=='-'){
 		currentSection.comments.push(v);
+		console.log(v);
 		return;
 	}else if(localDirection!=currentSection.direction){
 		pushSection(localDirection);
@@ -67,7 +66,6 @@ contents.forEach(function(v){
 pushSection();
 
 sectionList.forEach(function(v){
-	v.comments.forEach(function(w){ console.log(w); });
 	v.packets.forEach(function(w){ console.log(DBServer.formatBuf(w)); });
 });
 

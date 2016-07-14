@@ -231,15 +231,35 @@ Item14.prototype.toBuffer = function toBuffer(){
 }
 
 // Album art request
+
+
 module.exports.Item20 = Item20;
 function Item20(data){
+	if(data instanceof Buffer){
+		this.length = data.length;
+		this.method = 0x2a;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.resourceId = (data[0x28]<<8) + (data[0x29]);
+	}else{
+		for(var n in data) this[n]=data;
+	}
 }
 Item20.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var _x28 = (this.resourceId>>8) & 0xff;
+	var _x29 = (this.resourceId>>0) & 0xff;
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x20, 0x03, 0x0f, 0x02, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x03, 0x08, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29,
+	]);
 }
 
 
 module.exports.Item22 = Item22;
 function Item22(data){
+	
 }
 Item22.prototype.toBuffer = function toBuffer(){
 }
@@ -290,10 +310,20 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 		var data = r;
 		this.requestId = (data[8]<<8) + (data[9]);
 		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
-		this.responseBody = data[0x0c];
+		this.responseBody = data[0x0c]; // 0x02 for album art, 0x01 if there's menu items, 0x00 if last message
+		this._x0e = data[0x0e]; // This seems to be 0x04 if album art, 0x02 otherwise
+		this._x16 = data[0x16]; // This seems to be 0x06 if album art, 0x00 otherwise
+		this._x17 = data[0x17]; // This seems to be 0x03 if album art, 0x00 otherwise
 		this._x23 = data[0x23];
 		this._x24 = data[0x24];
 		this.itemCount = (data[0x28]<<8) + (data[0x29]);
+		if(this._x0e==0x04){
+			this._x2d = data[0x2d];
+			this._x2e = data[0x2e];
+			this._x2f = data[0x2f];
+			this.length = 0x34 + (data[0x32]<<8) + (data[0x33]<<0);
+			this.bodyData = data.slice(0x34, this.length);
+		}
 	}else{
 		this.requestId = r;
 		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
@@ -307,16 +337,34 @@ Item40.prototype.toBuffer = function toBuffer(){
 	// aaaa seems to list whichever "method" was used by the request in byte 0xb except for 0x30 which is 0
 	var _x08 = (this.requestId>>8) & 0xff;
 	var _x09 = (this.requestId>>0) & 0xff;
-	var x0xx = this.responseBody;
+	var _x0c = this.responseBody;
+	var _x0e = this._x0e;
+	var _x16 = this._x16;
+	var _x17 = this._x17;
 	var _x23 = this._x23;
 	var _x24 = this._x24;
 	var len0 = (this.itemCount>>8) & 0xff;
 	var len1 = (this.itemCount>>0) & 0xff;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x40, x0xx, 0x0f, 0x02, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	var b = new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x40, _x0c, 0x0f, _x0e, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, _x17,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  len0, len1,
 	]);
+	if(this._x0e==0x04){
+		var _x32 = (this.bodyData.length>>8) & 0xff;
+		var _x33 = (this.bodyData.length>>0) & 0xff;
+		var _x2d = this._x2d;
+		var _x2e = this._x2e;
+		var _x2f = this._x2f;
+		b = Buffer.concat([
+			b,
+			new Buffer([
+				0x11, 0x00, 0x00, _x2d, _x2e, _x2f,  0x00, 0x00, _x32, _x33,
+			]),
+			this.bodyData,
+		]);
+	}
+	return b;
 }
 
 module.exports.Item41 = Item41;
