@@ -269,27 +269,44 @@ module.exports.parseData = parseData;
 function parseData(data){
 	//console.log('Parse: ', data);
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
+	var info0 = parseKibble(data);
 	// The first packet that comes in on the connection always seems to be the handshake:
 	// the same five bytes in both directions, client first
-	var magic_handshake = new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
-	if(data.slice(0,5).compare(magic_handshake)==0){
+	if(info0 instanceof Kibble11 && info0.uint===1){
 		return new ItemHandshake(data);
 	}
-	var itemType = data[0x0b];
-	// The second packet that comes in seems to be this "hello" packet, the same 0x2a bytes except for the last one
-	var incoming_hello = new Buffer([ 0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff ]);
-	if(data.slice(0,8).compare(incoming_hello)==0){
-		if(itemType==0x40){
+	// All other packets will carry this magic number
+	if(info0 instanceof Kibble11 && info0.uint!==0x872349ae){
+		throw new Error('Invalid magic header');
+	}
+	// Look up second and third kibble
+	var offset = info0.length;
+	var info1 = parseKibble(data.slice(offset));
+	offset += info1.length;
+	var info2 = parseKibble(data.slice(offset));
+	if(!(info2 instanceof Kibble10)){
+		throw new Error('Missing Kibble10');
+	}
+	// Maybe it's a Hello or Sup
+	if(info1.uint==0xfffffffe){
+		if(info2.hex==='0000'){
+				return new ItemHello(data);
+		}else if(info2.hex==='4000'){
 			return new ItemSup(data);
-		}else if(itemType==0x00){
-			return new ItemHello(data);
 		}else{
-			// itemType==0x01 sometimes if there's a protocol problem
-			throw new Error('this is not my cat');
+			// this happens sometimes if there's a protocol problem
+			throw new Error('this is not my cat'+info2.hex);
 		}
 	}
-	var ItemStruct = module.exports.Item[itemType.toString(16)];
-	if(!ItemStruct) throw new Error('Unknown item type '+itemType.toString(16));
+	// And the fourth one also seems to be standard
+	offset += info2.length;
+	var info3 = parseKibble(data.slice(offset));
+	if(!(info3 instanceof Kibble14)){
+		throw new Error('Missing Kibble14');
+	}
+	// Everything after here is optional arguments
+	var ItemStruct = module.exports.Item[info2.a.toString(16)];
+	if(!ItemStruct) throw new Error('Unknown item type '+info2.a.toString(16));
 	return new ItemStruct(data);
 }
 
