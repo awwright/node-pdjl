@@ -34,7 +34,8 @@ function pushSection(localDirection){
 		item.original = currentSection.data.slice(i, i+item.length);
 		i += item.length;
 		currentSection.packets.push(item);
-		console.log(item);
+		console.log(DBServer.formatBuf(item.original));
+		//console.log(item);
 //		try {
 			DBServer.assertParsed(item.original, item);
 //		}catch(e){
