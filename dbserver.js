@@ -297,7 +297,7 @@ function Item30(data){
 		this.offset = (data[0x28]<<8) + (data[0x29]<<0);
 		this._x2e = data[0x2e];
 		this._x37 = data[0x37]; // This always seems to match the length provided in the earlier navigate request
-		this._x38 = data[0x38]; //
+		this._x38 = data[0x38]; // ditto
 		this._x3d = data[0x3d];
 	}else{
 		for(var n in data) this[n]=data;
@@ -613,20 +613,18 @@ function handleDBServerConnection(device, socket) {
 				// List all the tracks!
 				menu.items = [
 					new Item41({
-						length: 212,
-						requestId: 73,
-						numeric2: 3406,
-						numeric: 10790,
-						symbol2: 7,
-						symbol: 4,
-						label: 'Abagail Ain\'t No Pansy (Final Fight)',
-						label2: 'Master Hatchet, Octave',
-						_x3a: 46,
-						_x48: 1,
+						numeric2: 0x0d4e,
+						numeric: 0x2a26,
+						symbol2: 0x07,
+						symbol: 0x04,
+						label: 'Title',
+						label2: 'Artist',
+						_x3a: 0x2e,
+						_x48: 0x01,
 						albumArtId: 1234,
-						_x55: 0,
-						_x59: 1,
-						_x5f: 10,
+						_x55: 0x00,
+						_x59: 0x01,
+						_x5f: 0x0a,
 					}),
 					new Item41(r, 0x04, 0x1779, "Exactly", 0x0d, 0x35e8),
 					new Item41(r, 0x04, 0x177a, "Arisen", 0x0d, 0x35e8),
@@ -717,8 +715,7 @@ function handleDBServerConnection(device, socket) {
 			var len0 = (artBlob.length>>8) & 0xff;
 			var len1 = (artBlob.length>>0) & 0xff;
 			var response = new Item40({
-				length: 1587,
-				requestId: 67,
+				requestId: r,
 				responseBody: 2,
 				_x0e: 4,
 				_x16: 6,
@@ -726,8 +723,8 @@ function handleDBServerConnection(device, socket) {
 				_x23: 32,
 				_x24: 3,
 				itemCount: 0,
-				_x2d: 5,
-				_x2e: 255,
+				_x2d: 5, // This changes! What is it!
+				_x2e: 255, // This also changes! What does it do?!
 				_x2f: 20,
 				bodyData: artBlob,
 			});
