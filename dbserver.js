@@ -171,7 +171,7 @@ function Kibble10(data){
 		this.a = data[1];
 		this.b = data[2];
 		this.d = data[4];
-		this.uint = data.readUInt32BE(1);
+		this.hex = data.slice(1,3).toString('hex');
 		this.length = 5;
 	}
 }
@@ -184,12 +184,16 @@ Kibble10.prototype.toBuffer = function toBuffer(){
 
 // A 32-bit number or blob
 function Kibble11(data){
+	this.type = 0x11;
+	this.length = 5;
 	if(data instanceof Buffer){
-		this.type = 0x11;
 		if(data[0]!=this.type) throw new Error('Not a 0x11 Kibble');
 		this.data = data.slice(1,5);
 		this.uint = data.readUInt32BE(1);
-		this.length = 5;
+	}else if(typeof data=='number'){
+		this.data = new Buffer(4);
+		this.data.writeUInt32BE(data, 0);
+		this.uint = data;
 	}
 }
 Kibble11.prototype.toBuffer = function toBuffer(){
@@ -201,18 +205,27 @@ Kibble11.prototype.toBuffer = function toBuffer(){
 
 // A variable-length blob
 function Kibble14(data){
+	this.type = 0x14;
+	this.length = 5;
 	if(data instanceof Buffer){
-		this.type = 0x14;
 		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
 		var size = data.readUInt32BE(1);
-		this.data = data.slice(1,1+size);
-		this.length = 5 + this.data.length;
+		this.setData(data.slice(1,1+size));
 	}
+}
+Kibble14.prototype.setData = function setData(buf){
+	this.data = buf;
+	this.length = 5 + this.data.length;
 }
 Kibble14.prototype.toBuffer = function toBuffer(){
 	var size = new Buffer([0x14, 0, 0, 0, 0]);
-	size.writeUInt32BE(1, this.data.length);
+	size.writeUInt32BE(this.data.length, 1);
 	return Buffer.concat([size, this.data], 5+this.data.length);
+}
+Kibble14.data = function(b){
+	var k = new Kibble14();
+	k.setData(b);
+	return k;
 }
 
 // A variable-length UTC-16BE string
@@ -291,6 +304,7 @@ ItemHandshake.prototype.toBuffer = function toBuffer(){
 function ItemHello(data){
 	this.length = 0x25;
 	if(data instanceof Buffer){
+		this.kibble = [];
 		this.channel = data[0x24];
 	}else if(typeof data=='object'){
 		this.channel = data.channel;
@@ -299,10 +313,14 @@ function ItemHello(data){
 	}
 }
 ItemHello.prototype.toBuffer = function toBuffer(){
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0xff, 0xff,  0xff, 0xfe, 0x10, 0x00, 0x00, 0x0f, 0x01, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x00, 0x00, 0x00, 0x03,
+	return Buffer.concat([
+		new Kibble11(0x872349ae).toBuffer(),
+		new Kibble11(0xfffffffe).toBuffer(),
+		new Buffer([0x10, 0x00, 0x00, 0x0f, 0x01]),
+		Kibble14.data(new Buffer([
+			0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+		])).toBuffer(),
+		new Kibble11(this.channel).toBuffer(),
 	]);
 }
 
@@ -485,7 +503,6 @@ function Item21(data){
 	}else{
 		for(var n in data) this[n]=data;
 	}
-	
 }
 Item21.prototype.toBuffer = function toBuffer(){
 	var _x08 = (this.requestId>>8) & 0xff;
@@ -794,6 +811,8 @@ function handleDBServerConnection(device, socket) {
 		console.log('< DBServer incoming request');
 		console.log(formatBuf(data));
 		var info = parseData(data);
+		var kibble = parseBiscut(data);
+		console.log(kibble);
 		console.log('  DBServer '+info.constructor.name);
 		var r = info.requestId;
 		var type = info.method;
