@@ -118,6 +118,126 @@ function assertParsed(data, info){
 	}
 }
 
+var menuLabels = module.exports.menuLabels = {
+	1: 'mainmenu',
+	2: 'submenu',
+	5: 'sortmenu',
+};
+
+// The lower level item parsing
+
+module.exports.Kibble = {
+	"10": Kibble10,
+	"11": Kibble11,
+	"14": Kibble14,
+	"26": Kibble26,
+};
+var typeLabels = module.exports.typeLabels = {
+	"2003": 'request album art',
+	"3000": 'render menu',
+	"4000": 'response',
+	"4001": 'render menu header',
+	"4101": 'render menu item',
+	"4201": 'render menu footer',
+	"4002": 'album art',
+};
+
+// A kibble is... one of the items in the struct that usually starts with 0x11
+module.exports.parseKibble = parseKibble;
+function parseKibble(data){
+	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
+	var type = data[0];
+	var typeHex = data.slice(0,1).toString('hex');
+	var KibbleStruct = module.exports.Kibble[typeHex];
+	if(!KibbleStruct) throw new Error('Unknown kibble type '+itemType.toString(16));
+	return new KibbleStruct(data);
+}
+
+function parseBiscut(data){
+	var parts = [];
+	for(var i=0; data[i]>=0;){
+		var info = parseKibble(data.slice(i));
+		parts.push(info);
+		i += info.length;
+	}
+	return parts;
+}
+
+// A 32-bit number or blob when used as a header
+function Kibble10(data){
+	if(data instanceof Buffer){
+		this.type = 0x10;
+		if(data[0]!=this.type) throw new Error('Not a 0x10 Kibble');
+		this.a = data[1];
+		this.b = data[2];
+		this.d = data[4];
+		this.uint = data.readUInt32BE(1);
+		this.length = 5;
+	}
+}
+Kibble10.prototype.toBuffer = function toBuffer(){
+	var d = this.data;
+	return new Buffer([
+		0x10, this.a, this.b, 0x0f, this.d,
+	]);
+}
+
+// A 32-bit number or blob
+function Kibble11(data){
+	if(data instanceof Buffer){
+		this.type = 0x11;
+		if(data[0]!=this.type) throw new Error('Not a 0x11 Kibble');
+		this.data = data.slice(1,5);
+		this.uint = data.readUInt32BE(1);
+		this.length = 5;
+	}
+}
+Kibble11.prototype.toBuffer = function toBuffer(){
+	var d = this.data;
+	return new Buffer([
+		0x11, d[0], d[1], d[2], d[3],
+	]);
+}
+
+// A variable-length blob
+function Kibble14(data){
+	if(data instanceof Buffer){
+		this.type = 0x14;
+		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
+		var size = data.readUInt32BE(1);
+		this.data = data.slice(1,1+size);
+		this.length = 5 + this.data.length;
+	}
+}
+Kibble14.prototype.toBuffer = function toBuffer(){
+	var size = new Buffer([0x14, 0, 0, 0, 0]);
+	size.writeUInt32BE(1, this.data.length);
+	return Buffer.concat([size, this.data], 5+this.data.length);
+}
+
+// A variable-length UTC-16BE string
+function Kibble26(data){
+	if(data instanceof Buffer){
+		this.type = 0x26;
+		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
+		var size = data.readUInt32BE(1);
+		this.string = "";
+		for(var i=0; i<size; i++) this.string += buf.readUInt16BE(i, 5 + i*2);
+		this.length = 5 + this.data.length;
+	}
+}
+Kibble26.prototype.toBuffer = function toBuffer(){
+	var buf = new Buffer(5 + this.string.length*2 + 2);
+	buf.fill();
+	buf[0] = 0x26;
+	buf.writeUInt32BE(1, this.string.length);
+	for(var i=0; i<this.string.length; i++) buf.writeUInt16BE(this.label.charCodeAt(i)||0, 5 + i*2);
+	return buf;
+}
+
+
+// Higher level parsing functions
+
 module.exports.Item = {
 	"10": Item10,
 	"11": Item11,
@@ -130,11 +250,6 @@ module.exports.Item = {
 	"40": Item40,
 	"41": Item41,
 	"42": Item42,
-};
-var menuLabels = module.exports.menuLabels = {
-	1: 'mainmenu',
-	2: 'submenu',
-	5: 'sortmenu',
 };
 
 module.exports.parseData = parseData;
