@@ -241,18 +241,18 @@ function Kibble26(data){
 	if(data instanceof Buffer){
 		this.type = 0x26;
 		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
-		var size = data.readUInt32BE(1);
-		this.string = "";
-		for(var i=0; i<size; i++) this.string += data.readUInt16BE(5 + i*2);
-		this.length = 5 + this.string.length*2;
+		var size = data.readUInt32BE(1) - 1;
+		this.string = ""; // don't include trailing null
+		for(var i=0; i<size; i++) this.string += String.fromCharCode(data.readUInt16BE(5 + i*2));
+		this.length = 5 + size*2 + 2;
 	}
 }
 Kibble26.prototype.toBuffer = function toBuffer(){
 	var buf = new Buffer(5 + this.string.length*2 + 2);
 	buf.fill();
 	buf[0] = 0x26;
-	buf.writeUInt32BE(1, this.string.length);
-	for(var i=0; i<this.string.length; i++) buf.writeUInt16BE(this.label.charCodeAt(i)||0, 5 + i*2);
+	buf.writeUInt32BE(this.string.length+1, 1);
+	for(var i=0; i<this.string.length; i++) buf.writeUInt16BE(this.string.charCodeAt(i)||0, 5 + i*2);
 	return buf;
 }
 
