@@ -27,27 +27,43 @@ function formatBuf(b){
 }
 function formatBuf2(b){
 	var x = "";
+	var kibble = 0; // A segment (one of the ones usually starting with 0x11 ) within this packet
+	var itemType = null;
+	var itemType0 = null;
+	var itemType1 = null;
 	for(var i=0; i<b.length; ){
+		var ki = i; // kibble start offset
 		x += b.slice(i,i+1).toString('hex');
 		var chr = b[i];
 		if(++i==b.length) break;
 		else if(chr==0x10 || chr==0x11){
+			// 0x11 marks a 32-bit integer or blob
+			// sometimes broken down into multiple components or a bit mask
+			// 0x10 appears to be a special version of this that's used as a header
 			var b0 = b[i+0];
 			var b1 = b[i+1];
+			var b2 = b[i+2];
+			var b3 = b[i+3];
+			var numeric = b.readUInt32BE(i); // Don't read trailing null
 			for(var j=i+4; i<j; i++) x += ' ' + b.slice(i,i+1).toString('hex');
-			if(chr==0x10) x += '  (datatype, tailsize=' + b[i] + ')';
+			if(chr==0x10){
+				x += '  (datatype=0x' + b.slice(ki+1,ki+3).toString('hex') + ', tailsize=' + b3 + ')';
+				itemType = b.readUInt16BE(ki+1);
+				itemType0 = b0;
+				itemType1 = b1;
+			}
 			if(b0==0x87 && b1==0x23) x += '  (Magic)';
 			if(b0==0x03 && b1==0x80) x += '  (Request ID)';
 			if(b0==0xff && b1==0xff) x += '  (I like your hat)';
-			x+="\n";
 		}else if(chr==0x14){
+			// 0x14 marks an arbritrary-length series of bytes
 			x += ' ' + b.slice(i,i+4).toString('hex');
 			var len = b.readUInt32BE(i); // Don't read trailing null
 			var str = "";
 			i+=4;
 			for(var j=i+len; i<j; i++) x += ' ' + b.slice(i,i+1).toString('hex');
-			x += "\n";
 		}else if(chr==0x26){
+			// 0x14 marks a UTF-16BE string
 			x += ' ' + b.slice(i,i+4).toString('hex');
 			var len = b.readUInt32BE(i)-1; // Don't read trailing null
 			var str = "";
@@ -55,12 +71,27 @@ function formatBuf2(b){
 			//for(var j=i+len*2; i<j; i+=2) str += ' ' + b.slice(i,i+2).toString('hex');
 			for(var j=i+len*2; i<j; i+=2) str += String.fromCharCode(b.readUInt16BE(i));
 			i+=2;
-			x += ' (' + len + ') ' + JSON.stringify(str) + "\n";
-		}else{
-			x+="\n";
+			x += ' (' + len + ') ' + JSON.stringify(str);
 		}
+		if(itemType==0x3000 && kibble==4) x += '  (menu='+menuLabels[b1]+')';
+		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
+		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
+		// Menu item
+		if(itemType==0x4101 && kibble==4) x += '  (numeric2 field)';
+		if(itemType==0x4101 && kibble==5) x += '  (numeric1 field)';
+		if(itemType==0x4101 && kibble==6) x += '  (byte size field)';
+		if(itemType==0x4101 && kibble==7) x += '  (label1 field)';
+		if(itemType==0x4101 && kibble==8) x += '  (byte size2 field)';
+		if(itemType==0x4101 && kibble==9) x += '  (label2 field)';
+		if(itemType==0x4101 && kibble==10) x += '  (icons field)';
+		if(itemType==0x4101 && kibble==11) x += '  (column configuration(?))';
+		if(itemType==0x4101 && kibble==12) x += '  (album art id)';
+		if(itemType==0x4002 && kibble==6) x += '  (attachment size)';
+		if(itemType==0x4002 && kibble==7) x += '  (attachment bytestring)';
+		x+="\n";
+		kibble++;
 	}
-	return x+"\n";
+	return x;
 }
 
 module.exports.assertParsed = assertParsed;
@@ -92,7 +123,12 @@ module.exports.Item = {
 	"40": Item40,
 	"41": Item41,
 	"42": Item42,
-}
+};
+var menuLabels = module.exports.menuLabels = {
+	1: 'mainmenu',
+	2: 'submenu',
+	5: 'sortmenu',
+};
 
 module.exports.parseData = parseData;
 function parseData(data){
@@ -826,11 +862,6 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item30){
-			var menuLabels = {
-				1: 'mainmenu',
-				2: 'submenu',
-				5: 'sortmenu',
-			}
 			var menu = state.menus[info.affectedMenu];
 			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
 			var response = menu.items.slice(info.offset, info.offset+6);
