@@ -173,6 +173,10 @@ function Kibble10(data){
 		this.d = data[4];
 		this.hex = data.slice(1,3).toString('hex');
 		this.length = 5;
+	}else{
+		this.a = data.a;
+		this.b = data.b;
+		this.d = data.d;
 	}
 }
 Kibble10.prototype.toBuffer = function toBuffer(){
@@ -195,6 +199,9 @@ function Kibble11(data){
 		this.data.writeUInt32BE(data, 0);
 		this.uint = data;
 	}
+}
+Kibble11.requestId = function(r){
+	return new Kibble11(0x03800000 + r);
 }
 Kibble11.prototype.toBuffer = function toBuffer(){
 	var d = this.data;
@@ -295,7 +302,7 @@ function parseData(data){
 			return new ItemSup(data);
 		}else{
 			// this happens sometimes if there's a protocol problem
-			throw new Error('this is not my cat'+info2.hex);
+			throw new Error('this is not my cat: '+info2.hex);
 		}
 	}
 	// And the fourth one also seems to be standard
@@ -308,6 +315,23 @@ function parseData(data){
 	var ItemStruct = module.exports.Item[info2.a.toString(16)];
 	if(!ItemStruct) throw new Error('Unknown item type '+info2.a.toString(16));
 	return new ItemStruct(data);
+}
+
+function Item(r, a, b, meta, kibbles){
+	this.r = r;
+	this.a = a;
+	this.b = b;
+	this.meta = meta;
+	this.kibbles = kibbles;
+}
+Item.prototype.toBuffer = function toBuffer(){
+	var k = [
+		new Kibble11(0x872349ae),
+		Kibble11.requestId(this.r),
+		new Kibble10({a:this.a, b:this.b, d:this.kibbles.length}),
+		Kibble14.blob(new Buffer(this.meta)),
+	].concat(this.kibbles);
+	return Buffer.concat(k.map(function(v){ return v.toBuffer(); }));
 }
 
 function ItemHandshake(){
@@ -903,7 +927,7 @@ function handleDBServerConnection(device, socket) {
 						label2: 'Artist',
 						_x3a: 0x2e,
 						_x48: 0x01,
-						albumArtId: 0,
+						albumArtId: 1234,
 						_x55: 0x00,
 						_x59: 0x01,
 						_x5f: 0x0a,
@@ -996,20 +1020,12 @@ function handleDBServerConnection(device, socket) {
 			console.log('> DBServer album art request');
 			var len0 = (artBlob.length>>8) & 0xff;
 			var len1 = (artBlob.length>>0) & 0xff;
-			var response = new Item40({
-				requestId: r,
-				responseBody: 2,
-				_x0e: 4,
-				_x16: 6,
-				_x17: 3,
-				_x23: 32,
-				_x24: 3,
-				itemCount: 0,
-				_x2d: 5, // This changes! What is it!
-				_x2e: 255, // This also changes! What does it do?!
-				_x2f: 20,
-				bodyData: artBlob,
-			});
+			var response = new Item(r, 0x40, 0, [6,6,6,3,0,0,0,0,0,0,0,0], [
+				new Kibble11(0x2003),
+				new Kibble11(0),
+				new Kibble11(artBlob.length),
+				Kibble14.blob(artBlob),
+			]);
 			sendItems([response]);
 			return;
 		}
