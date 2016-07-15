@@ -4,7 +4,7 @@
 // Tag List
 // Tag List menu including Remove All Items?
 
-artBlob = require('fs').readFileSync('./art.jfif');
+var artBlob = require('fs').readFileSync('./art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
 
@@ -253,8 +253,6 @@ Item14.prototype.toBuffer = function toBuffer(){
 }
 
 // Album art request
-
-
 module.exports.Item20 = Item20;
 function Item20(data){
 	if(data instanceof Buffer){
@@ -370,6 +368,9 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 			this.length = 0x34 + (data[0x32]<<8) + (data[0x33]<<0);
 			this.bodyData = data.slice(0x34, this.length);
 		}
+	}else if(typeof r=='object'){
+		var data = r;
+		for(var n in data) this[n]=data[n];
 	}else{
 		this.requestId = r;
 		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
@@ -439,12 +440,13 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this._x3a = data[0x3a+start1]; // 0x02 normally, observed 0x2a with a second column view
 		for(var i=0; i<label2Len; i++) this.label2 += String.fromCharCode(data.readUInt16BE(0x40+start1+i*2));
 		this._x48 = data[0x48+start2]; // 0x00 normally, seems to be set to 0x01 when using the second column
-		this._x4f_2 = (data[0x4f+start2]<<8) + (data[0x50+start2]);
+		this.albumArtId = (data[0x4f+start2]<<8) + (data[0x50+start2]);
 		this._x55 = data[0x55+start2];
 		this._x59 = data[0x59+start2];
 		this._x5f = data[0x5f+start2];
-	}else if(typeof requestId=='data'){
-		for(var n in data) this[n]=data;
+	}else if(typeof requestId=='object'){
+		var data = requestId;
+		for(var n in data) this[n]=data[n];
 	}else{
 		this.length = 0x60 + label.length*2;
 		this.requestId = requestId;
@@ -455,7 +457,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.symbol2 = symbol2 || 0;
 		this.numeric2 = numeric2 || 0;
 		this.label2 = label2 || "";
-		this._x49_2 = 0; // dunno what this is
+		this.albumArtId = 0;
 	}
 }
 Item41.prototype.toBuffer = function toBuffer(){
@@ -475,8 +477,8 @@ Item41.prototype.toBuffer = function toBuffer(){
 	var _x45 = this.symbol2 || 0; // Icon for second column
 	var _x46 = this.symbol;
 	var _x48 = this._x48;
-	var _x4f = (this._x4f_2>>8) & 0xff;
-	var _x50 = (this._x4f_2>>0) & 0xff;
+	var _x4f = (this.albumArtId>>8) & 0xff;
+	var _x50 = (this.albumArtId>>0) & 0xff;
 	var _x55 = this._x55;
 	var _x59 = this._x59;
 	var _x5f = this._x5f;
@@ -610,7 +612,22 @@ function handleDBServerConnection(device, socket) {
 			}else if(menu.listing==0x04){
 				// List all the tracks!
 				menu.items = [
-					new Item41(r, 0x04, 0x1778, "Dido", 0x07, 0x36af),
+					new Item41({
+						length: 212,
+						requestId: 73,
+						numeric2: 3406,
+						numeric: 10790,
+						symbol2: 7,
+						symbol: 4,
+						label: 'Abagail Ain\'t No Pansy (Final Fight)',
+						label2: 'Master Hatchet, Octave',
+						_x3a: 46,
+						_x48: 1,
+						albumArtId: 1234,
+						_x55: 0,
+						_x59: 1,
+						_x5f: 10,
+					}),
 					new Item41(r, 0x04, 0x1779, "Exactly", 0x0d, 0x35e8),
 					new Item41(r, 0x04, 0x177a, "Arisen", 0x0d, 0x35e8),
 					new Item41(r, 0x04, 0x177b, "Communication Part One", 0x0d, 0x35e8),
@@ -696,6 +713,28 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item20){
+			console.log('> DBServer album art request');
+			var len0 = (artBlob.length>>8) & 0xff;
+			var len1 = (artBlob.length>>0) & 0xff;
+			var response = new Item40({
+				length: 1587,
+				requestId: 67,
+				responseBody: 2,
+				_x0e: 4,
+				_x16: 6,
+				_x17: 3,
+				_x23: 32,
+				_x24: 3,
+				itemCount: 0,
+				_x2d: 5,
+				_x2e: 255,
+				_x2f: 20,
+				bodyData: artBlob,
+			});
+			sendItems([response]);
+			return;
+		}
+		if(info instanceof Item20){
 			var affectedMenu = data[0x22];
 			var menu = state.menus[affectedMenu] = {};
 			menu.method = info.method;
@@ -750,20 +789,6 @@ function handleDBServerConnection(device, socket) {
 				0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
 			]);
 			console.log(formatBuf(response));
-			socket.write(response);
-			return;
-		}
-		if(info instanceof Item40){
-			console.log('> DBServer album art request');
-			var len0 = (artBlob.length>>8) & 0xff;
-			var len1 = (artBlob.length>>0) & 0xff;
-			var response = Buffer([
-				0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  0x0f, 0xc2, 0x10, 0x40, 0x02, 0x0f, 0x04, 0x14,
-				0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x03,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-				0x11, 0x00, 0x00, 0x20, 0x03, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0x00, 0x0a, 0x51, 0x14,
-				0x00, 0x00, len0, len1
-			]).concat(artBlob);
-			//console.log(formatBuf(response));
 			socket.write(response);
 			return;
 		}
