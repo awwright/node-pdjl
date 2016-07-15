@@ -133,6 +133,7 @@ module.exports.Kibble = {
 	"26": Kibble26,
 };
 var typeLabels = module.exports.typeLabels = {
+	"1000": 'load root menu',
 	"2003": 'request album art',
 	"3000": 'render menu',
 	"4000": 'response',
@@ -149,7 +150,7 @@ function parseKibble(data){
 	var type = data[0];
 	var typeHex = data.slice(0,1).toString('hex');
 	var KibbleStruct = module.exports.Kibble[typeHex];
-	if(!KibbleStruct) throw new Error('Unknown kibble type '+itemType.toString(16));
+	if(!KibbleStruct) throw new Error('Unknown kibble type '+typeHex);
 	return new KibbleStruct(data);
 }
 
@@ -217,7 +218,7 @@ function Kibble14(data){
 	if(data instanceof Buffer){
 		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
 		var size = data.readUInt32BE(1);
-		this.setData(data.slice(1,1+size));
+		this.setData(data.slice(5,5+size));
 	}
 }
 Kibble14.prototype.setData = function setData(buf){
@@ -242,8 +243,8 @@ function Kibble26(data){
 		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
 		var size = data.readUInt32BE(1);
 		this.string = "";
-		for(var i=0; i<size; i++) this.string += buf.readUInt16BE(i, 5 + i*2);
-		this.length = 5 + this.data.length;
+		for(var i=0; i<size; i++) this.string += data.readUInt16BE(5 + i*2);
+		this.length = 5 + this.string.length*2;
 	}
 }
 Kibble26.prototype.toBuffer = function toBuffer(){
@@ -318,7 +319,7 @@ function parseData(data){
 }
 
 function Item(r, a, b, meta, kibbles){
-	this.r = r;
+	this.requestId = r;
 	this.a = a;
 	this.b = b;
 	this.meta = meta;
@@ -327,7 +328,7 @@ function Item(r, a, b, meta, kibbles){
 Item.prototype.toBuffer = function toBuffer(){
 	var k = [
 		new Kibble11(0x872349ae),
-		Kibble11.requestId(this.r),
+		Kibble11.requestId(this.requestId),
 		new Kibble10({a:this.a, b:this.b, d:this.kibbles.length}),
 		Kibble14.blob(new Buffer(this.meta)),
 	].concat(this.kibbles);
@@ -345,7 +346,6 @@ ItemHandshake.prototype.toBuffer = function toBuffer(){
 function ItemHello(data){
 	this.length = 0x25;
 	if(data instanceof Buffer){
-		this.kibble = [];
 		this.channel = data[0x24];
 	}else if(typeof data=='object'){
 		this.channel = data.channel;
