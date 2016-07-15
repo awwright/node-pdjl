@@ -10,6 +10,7 @@ var showOutgoing = true;
 
 module.exports.formatBuf = formatBuf;
 function formatBuf(b){
+	return formatBuf2(b);
 	var x = "";
 	for(var i=0; i<b.length; ){
 		x += b.slice(i,i+1).toString('hex');
@@ -21,6 +22,43 @@ function formatBuf(b){
 		}
 		else if(i%8==0) x+="  ";
 		else x+=" ";
+	}
+	return x+"\n";
+}
+function formatBuf2(b){
+	var x = "";
+	for(var i=0; i<b.length; ){
+		x += b.slice(i,i+1).toString('hex');
+		var chr = b[i];
+		if(++i==b.length) break;
+		else if(chr==0x10 || chr==0x11){
+			var b0 = b[i+0];
+			var b1 = b[i+1];
+			for(var j=i+4; i<j; i++) x += ' ' + b.slice(i,i+1).toString('hex');
+			if(chr==0x10) x += '  (datatype, tailsize=' + b[i] + ')';
+			if(b0==0x87 && b1==0x23) x += '  (Magic)';
+			if(b0==0x03 && b1==0x80) x += '  (Request ID)';
+			if(b0==0xff && b1==0xff) x += '  (I like your hat)';
+			x+="\n";
+		}else if(chr==0x14){
+			x += ' ' + b.slice(i,i+4).toString('hex');
+			var len = b.readUInt32BE(i); // Don't read trailing null
+			var str = "";
+			i+=4;
+			for(var j=i+len; i<j; i++) x += ' ' + b.slice(i,i+1).toString('hex');
+			x += "\n";
+		}else if(chr==0x26){
+			x += ' ' + b.slice(i,i+4).toString('hex');
+			var len = b.readUInt32BE(i)-1; // Don't read trailing null
+			var str = "";
+			i+=4;
+			//for(var j=i+len*2; i<j; i+=2) str += ' ' + b.slice(i,i+2).toString('hex');
+			for(var j=i+len*2; i<j; i+=2) str += String.fromCharCode(b.readUInt16BE(i));
+			i+=2;
+			x += ' (' + len + ') ' + JSON.stringify(str) + "\n";
+		}else{
+			x+="\n";
+		}
 	}
 	return x+"\n";
 }
