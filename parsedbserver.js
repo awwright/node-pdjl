@@ -58,7 +58,7 @@ contents.forEach(function(v){
 		}
 		console.log('');
 		return;
-	}else if(localDirection=='-' &&  v[1]=='-'){
+	}else if(v[0]=='-' &&  v[1]=='-'){
 		currentSection.comments.push(v);
 		console.log(v);
 		return;

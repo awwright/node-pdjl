@@ -47,6 +47,7 @@ module.exports.Item = {
 	"11": Item11,
 	"14": Item14,
 	"20": Item20,
+	"21": Item21,
 	"22": Item22,
 	"30": Item30,
 	"31": Item31,
@@ -253,6 +254,7 @@ Item14.prototype.toBuffer = function toBuffer(){
 }
 
 // Album art request
+// Also a track info menu request???
 module.exports.Item20 = Item20;
 function Item20(data){
 	if(data instanceof Buffer){
@@ -271,6 +273,31 @@ Item20.prototype.toBuffer = function toBuffer(){
 	var _x29 = (this.resourceId>>0) & 0xff;
 	return new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x20, 0x03, 0x0f, 0x02, 0x14,
+		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x11, 0x03, 0x08, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29,
+	]);
+}
+
+// A request for track metadata(??)
+module.exports.Item21 = Item21;
+function Item21(data){
+	if(data instanceof Buffer){
+		this.length = data.length;
+		this.method = 0x21;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.resourceId = (data[0x28]<<8) + (data[0x29]);
+	}else{
+		for(var n in data) this[n]=data;
+	}
+	
+}
+Item21.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	var _x28 = (this.resourceId>>8) & 0xff;
+	var _x29 = (this.resourceId>>0) & 0xff;
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x21, 0x02, 0x0f, 0x02, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x11, 0x03, 0x08, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29,
 	]);
@@ -344,6 +371,25 @@ Item31.prototype.toBuffer = function toBuffer(){
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x06,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x11, 0x03, 0x01, 0x04, 0x01, 0x11, 0x00, 0x00,  0x2a, 0x26, 0x11, 0x00, 0x00, 0x00, 0x00, 0x11,
 		0x00, 0x00, 0x00, 0x00,
+	]);
+}
+
+// Has something to do with... idk
+module.exports.Item3e = Item3e;
+function Item3e(data){
+	if(data instanceof Buffer){
+		this.length = data.length;
+		this.method = 0x3e;
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item3e.prototype.toBuffer = function toBuffer(){
+	var _x08 = (this.requestId>>8) & 0xff;
+	var _x09 = (this.requestId>>0) & 0xff;
+	return new Buffer([
+		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x3e, 0x00, 0x0f, 0x04, 0x14,
 	]);
 }
 
@@ -430,6 +476,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.length = 0x60 + offset - 2 + label2Len*2; // 0x60 already includes null character
 		// collect data
 		this.requestId = (data[8]<<8) + (data[9]);
+		this._x22 = data[0x22]; // Normally 0x00, 0x3e if the field is describing the NFS filepath
 		this.numeric2 = (data[0x23]<<8) + (data[0x24]);
 		this.numeric = (data[0x28]<<8) + (data[0x29]);
 		this.symbol2 = data[0x45+start2];
@@ -466,6 +513,7 @@ Item41.prototype.toBuffer = function toBuffer(){
 
 	var _x08 = (this.requestId>>8) & 0xff;
 	var _x09 = (this.requestId>>0) & 0xff;
+	var _x22 = this._x22;
 	var _x23 = (this.numeric2>>8) & 0xff;
 	var _x24 = (this.numeric2>>0) & 0xff;
 	var _x28 = (this.numeric>>8) & 0xff;
@@ -491,7 +539,7 @@ Item41.prototype.toBuffer = function toBuffer(){
 	var tpl = new Buffer([
 		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x41, 0x01, 0x0f, 0x0c, 0x14,
 		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x02,  0x06, 0x02, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, _x2d, _x2e, 0x26,
+		0x11, 0x00, _x22, _x23, _x24, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, _x2d, _x2e, 0x26,
 		0x00, 0x00, len0, len1, 0x00, 0x00, 0x11, 0x00,  0x00, 0x00, _x3a, 0x26, 0x00, 0x00, lem0, lem1,
 		0x00, 0x00, 0x11, 0x00, 0x00, _x45, _x46, 0x11,  _x48, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, _x4f,
 		_x50, 0x11, 0x00, 0x00, 0x00, _x55, 0x11, 0x00,  0x00, _x59, 0x00, 0x11, 0x00, 0x00, 0x00, _x5f,
@@ -537,7 +585,9 @@ function handleDBServerConnection(device, socket) {
 	state.buffer = new Buffer(0); // Hold onto packets while they're incomplete
 	state.menus = {}
 	function sendItems(items){
+		console.log('> DBServer outgoing response');
 		socket.write(Buffer.concat(items.map(function(v){
+			console.log(formatBuf(v.toBuffer()));
 			console.log(v);
 			return v.toBuffer();
 		})));
@@ -621,7 +671,7 @@ function handleDBServerConnection(device, socket) {
 						label2: 'Artist',
 						_x3a: 0x2e,
 						_x48: 0x01,
-						albumArtId: 1234,
+						albumArtId: 0,
 						_x55: 0x00,
 						_x59: 0x01,
 						_x5f: 0x0a,
@@ -731,22 +781,9 @@ function handleDBServerConnection(device, socket) {
 			sendItems([response]);
 			return;
 		}
-		if(info instanceof Item20){
-			var affectedMenu = data[0x22];
-			var menu = state.menus[affectedMenu] = {};
-			menu.method = info.method;
-			menu.listing = data[0x0c];
-			console.log('> DBServer navigate to tracks listing='+menu.listing.toString(16));
-			menu.items = [
-				new Item41(r, 0x23, 1, "x20"),
-				new Item41(r, 0x90, 0x14, "Folder 2"),
-				new Item41(r, 0x90, 0x10, "Folder 3"),
-				new Item41(r, 0x90, 0x2a, "Playlist 4"),
-				new Item41(r, 0x90, 0x3d, "Playlist 5"),
-				new Item41(r, 0x90, 0x37, "Playlist 6"),
-			];
-			var response_prerequest = new Item40(r, 0, type, 0x06, menu.items.length);
-			console.log('> DBServer open sort menu');
+		if(info instanceof Item21){
+			var response_prerequest = new Item40(r, 0, type, 0x06, 0x06);
+			console.log('> DBServer get track data');
 			sendItems([response_prerequest]);
 			return;
 		}
