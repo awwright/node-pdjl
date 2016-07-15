@@ -9,8 +9,7 @@ var showIncoming = true;
 var showOutgoing = true;
 
 module.exports.formatBuf = formatBuf;
-function formatBuf(b){
-	return formatBuf2(b);
+function formatBufBytes(b){
 	var x = "";
 	for(var i=0; i<b.length; ){
 		x += b.slice(i,i+1).toString('hex');
@@ -23,15 +22,16 @@ function formatBuf(b){
 		else if(i%8==0) x+="  ";
 		else x+=" ";
 	}
-	return x+"\n";
+	return x;
 }
-function formatBuf2(b){
+function formatBuf(b){
 	var x = "";
 	var kibble = 0; // A segment (one of the ones usually starting with 0x11 ) within this packet
 	var itemType = null;
 	var itemType0 = null;
 	var itemType1 = null;
 	for(var i=0; i<b.length; ){
+		var attachment = null;
 		var ki = i; // kibble start offset
 		x += b.slice(i,i+1).toString('hex');
 		var chr = b[i];
@@ -47,7 +47,8 @@ function formatBuf2(b){
 			var numeric = b.readUInt32BE(i); // Don't read trailing null
 			for(var j=i+4; i<j; i++) x += ' ' + b.slice(i,i+1).toString('hex');
 			if(chr==0x10){
-				x += '  (datatype=0x' + b.slice(ki+1,ki+3).toString('hex') + ', tailsize=' + b3 + ')';
+				var typeHex = b.slice(ki+1,ki+3).toString('hex');
+				x += '  (datatype=0x' + typeHex + ' '+JSON.stringify(typeLabels[typeHex])+', tailsize=' + b3 + ')';
 				itemType = b.readUInt16BE(ki+1);
 				itemType0 = b0;
 				itemType1 = b1;
@@ -61,7 +62,8 @@ function formatBuf2(b){
 			var len = b.readUInt32BE(i); // Don't read trailing null
 			var str = "";
 			i+=4;
-			for(var j=i+len; i<j; i++) x += ' ' + b.slice(i,i+1).toString('hex');
+			attachment = b.slice(i, i+len);
+			i += len;
 		}else if(chr==0x26){
 			// 0x14 marks a UTF-16BE string
 			x += ' ' + b.slice(i,i+4).toString('hex');
@@ -73,6 +75,7 @@ function formatBuf2(b){
 			i+=2;
 			x += ' (' + len + ') ' + JSON.stringify(str);
 		}
+		// render selected menu
 		if(itemType==0x3000 && kibble==4) x += '  (menu='+menuLabels[b1]+')';
 		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
 		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
@@ -86,9 +89,13 @@ function formatBuf2(b){
 		if(itemType==0x4101 && kibble==10) x += '  (icons field)';
 		if(itemType==0x4101 && kibble==11) x += '  (column configuration(?))';
 		if(itemType==0x4101 && kibble==12) x += '  (album art id)';
+		// Album art image
 		if(itemType==0x4002 && kibble==6) x += '  (attachment size)';
 		if(itemType==0x4002 && kibble==7) x += '  (attachment bytestring)';
 		x+="\n";
+		if(attachment){
+			x += formatBufBytes(attachment).replace(/^/gm, "    ") + "\n";
+		}
 		kibble++;
 	}
 	return x;
