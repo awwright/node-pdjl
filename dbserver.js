@@ -275,7 +275,7 @@ Kibble26.string = function(b){
 
 // Higher level parsing functions
 
-module.exports.mapItem = {
+var mapItem = module.exports.mapItem = {
 	"10": Item10,
 	"11": Item11,
 	"14": Item14,
@@ -347,7 +347,7 @@ function parseMessage(data){
 
 module.exports.parseItem = parseItem;
 function parseItem(message, data){
-	var ItemStruct = module.exports.mapItem[message.a.toString(16)];
+	var ItemStruct = mapItem[((message.a<<8)|(message.b)).toString(16)] || mapItem[message.a.toString(16)];
 	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
 	var item = new ItemStruct(data);
 	assertParsed(data, item);
@@ -479,8 +479,8 @@ function Item11(data){
 		this.length = 0x34;
 		this.method = 0x11;
 		this.requestId = (data[0x08]<<8) | (data[0x09]);
-		this._x16 = data[0x16];
-		this._x17 = data[0x17];
+		this.m2 = data[0x16];
+		this.m3 = data[0x17];
 		this.affectedMenu = data[0x22];
 		this.playlist = (data[0x2d]<<8) | data[0x2e];
 		this._x33 = data[0x33];
@@ -489,25 +489,15 @@ function Item11(data){
 	}
 }
 Item11.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x16 = this._x16; // This is set for the device full-menu; not sort-popout menu
-	var _x17 = this._x17; // This is set for the device full-menu; not sort-popout menu
-	var _x22 = this.affectedMenu;
-	var _x2d = (this.playlist>>8) & 0xff;
-	var _x2e = (this.playlist>>0) & 0xff;
-	var _x33 = this._x33;
-	var b = new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x11, 0x05, 0x0f, 0x04, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, _x17,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0x00, _x2d, _x2e,
+	var b = new Item(this.requestId, 0x11, 0x05, [6,6,this.m2,this.m3,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
+		new Kibble11(0),
+		new Kibble11(this.playlist),
 	]);
-	if(this.length==0x34){
-		b = Buffer.concat([b, new Buffer([
-			0x11, 0x00, 0x00, 0x00, _x33,
-		])]);
+	if(this._x33>=0){
+		b.args.push(new Kibble11(this._x33));
 	}
-	return b;
+	return b.toBuffer();
 }
 
 // This is sent to request the 'Sort' or maybe another pop-up menu
@@ -537,22 +527,23 @@ function Item20(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
 		this.method = 0x20;
+		this.listing = data[0x0c];
+		console.log(data.slice(0x10));
+		this.m2 = data[0x16];
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.affectedMenu = data[0x22];
 		this.resourceId = (data[0x28]<<8) + (data[0x29]);
 	}else{
 		for(var n in data) this[n]=data;
 	}
 }
 Item20.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x28 = (this.resourceId>>8) & 0xff;
-	var _x29 = (this.resourceId>>0) & 0xff;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x20, 0x03, 0x0f, 0x02, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, 0x08, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29,
+	var b = new Item(this.requestId, 0x20, this.listing, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11(this.resourceId),
+		new Kibble11(1),
 	]);
+	return b.toBuffer();
 }
 
 // A request for track metadata(??)
@@ -568,15 +559,11 @@ function Item21(data){
 	}
 }
 Item21.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x28 = (this.resourceId>>8) & 0xff;
-	var _x29 = (this.resourceId>>0) & 0xff;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x21, 0x02, 0x0f, 0x02, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, 0x08, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29,
+	var b = new Item(this.requestId, 0x21, 0x02, [6,6,0,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03080401),
+		new Kibble11(this.resourceId),
 	]);
+	return b.toBuffer();
 }
 
 
@@ -598,32 +585,23 @@ function Item30(data){
 		this._x17 = data[0x17];
 		this.affectedMenu = data[0x22];
 		this.offset = (data[0x28]<<8) + (data[0x29]<<0);
-		this._x2e = data[0x2e];
-		this._x37 = data[0x37]; // This always seems to match the length provided in the earlier navigate request
-		this._x38 = data[0x38]; // ditto
+		this.limit = data[0x2e];
+		this.len_a = (data[0x37]<<8) + (data[0x38]<<0); // This always seems to match the length provided in the earlier navigate request
 		this._x3d = data[0x3d];
 	}else{
 		for(var n in data) this[n]=data;
 	}
 }
 Item30.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x16 = this._x16; // This is set for the device full-menu; not sort-popout menu
-	var _x17 = this._x17; // This is set for the device full-menu; not sort-popout menu
-	var _x22 = this.affectedMenu;
-	var _x28 = (this.offset>>8) & 0xff;
-	var _x29 = (this.offset>>0) & 0xff;
-	var _x2e = this._x2e;
-	var _x37 = this._x37;
-	var _x38 = this._x38;
-	var _x3d = this._x3d;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x30, 0x00, 0x0f, 0x06, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, _x17,  0x06, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, 0x00, _x2e, 0x11,
-		0x00, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, _x37,  _x38, 0x11, 0x00, 0x00, 0x00, _x3d,
+	var b = new Item(this.requestId, 0x30, 0x00, [6,6,this._x16,this._x17,6,6,0,0,0,0,0,0], [
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11(this.offset),
+		new Kibble11(this.limit),
+		new Kibble11(0),
+		new Kibble11(this.len_a),
+		new Kibble11(this._x3d),
 	]);
+	return b.toBuffer();
 }
 
 
@@ -640,14 +618,13 @@ function Item31(data){
 	}
 }
 Item31.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x31, 0x00, 0x0f, 0x04, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x06,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, 0x01, 0x04, 0x01, 0x11, 0x00, 0x00,  0x2a, 0x26, 0x11, 0x00, 0x00, 0x00, 0x00, 0x11,
-		0x00, 0x00, 0x00, 0x00,
+	var b = new Item(this.requestId, 0x31, 0x00, [6,6,6,6,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03010401),
+		new Kibble11(0x2a26),
+		new Kibble11(0),
+		new Kibble11(0),
 	]);
+	return b.toBuffer();
 }
 
 // Has something to do with... idk
@@ -710,35 +687,34 @@ Item40.prototype.toBuffer = function toBuffer(){
 module.exports.Item41 = Item41;
 function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	if(requestId instanceof Buffer){
+		var message = parseMessage(requestId);
+		console.log('MESSAGE', message);
+	}else if (requestId instanceof Item){
+		var message = requestId;
+	}
+	if(message instanceof Item){
+		this.length = message.length;
 		var data = requestId;
-		// lots of offsets to calculate
-		var offset = (data[0x2d]<<8) + (data[0x2e]);
-		var labelLen = (data[0x32]<<8) + (data[0x33]) - 1; // subtract null terminator
-		var start1 = labelLen*2;
-		var label2Len = (data[0x3e+start1]<<8) + (data[0x3f+start1]) - 1; // subtract null terminator
-		var start2 = labelLen*2 + label2Len*2;
-		this.length = 0x60 + offset - 2 + label2Len*2; // 0x60 already includes null character
 		// collect data
-		this.requestId = (data[8]<<8) + (data[9]);
+		this.requestId = message.requestId;
 		this._x22 = data[0x22]; // Normally 0x00, 0x3e if the field is describing the NFS filepath
-		this.numeric2 = (data[0x23]<<8) + (data[0x24]);
-		this.numeric = (data[0x28]<<8) + (data[0x29]);
-		this.symbol2 = data[0x45+start2];
-		this.symbol = data[0x46+start2];
-		this.label = '';
-		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
-		this.label2 = '';
-		for(var i=0; i<label2Len; i++) this.label2 += String.fromCharCode(data.readUInt16BE(0x40+start1+i*2));
-		this._x48 = data[0x48+start2]; // 0x00 normally, seems to be set to 0x01 when using the second column
-		this.albumArtId = (data[0x4f+start2]<<8) + (data[0x50+start2]);
-		this._x55 = data[0x55+start2];
-		this._x59 = data[0x59+start2];
-		this._x5f = data[0x5f+start2];
+		this.numeric2 = message.args[0].uint;
+		this.numeric = message.args[1].uint;
+		// argument 2 is byte length of argument 3
+		this.label = message.args[3].string;
+		// argument 4 is byte length of argument 5
+		this.label2 = message.args[5].string;
+		this.symbol2 = message.args[6].data[2];
+		this.symbol = message.args[6].data[3];
+		this.opt7 = message.args[7].uint; // 0x00 normally, seems to be set to 0x01 when using the second column
+		this.albumArtId = message.args[8].uint;
+		this.opt9 = message.args[9].uint;
+		this.opta = message.args[10].uint;
+		this.optb = message.args[11].uint;
 	}else if(typeof requestId=='object'){
 		var data = requestId;
 		for(var n in data) this[n]=data[n];
 	}else{
-		this.length = 0x60 + label.length*2;
 		this.requestId = requestId;
 		this.symbol = symbol;
 		this.numeric = numeric;
@@ -746,7 +722,12 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.symbol2 = symbol2 || 0;
 		this.numeric2 = numeric2 || 0;
 		this.label2 = label2 || "";
+		this.opt7 = 0;
 		this.albumArtId = 0;
+		this.opt9 = 0;
+		this.opta = 0;
+		this.optb = 0;
+		this.length = 0x60 + this.label.length*2 + this.label2.length*2;
 	}
 }
 Item41.prototype.toBuffer = function toBuffer(){
@@ -759,11 +740,11 @@ Item41.prototype.toBuffer = function toBuffer(){
 		Kibble26.string(this.label2),
 		// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
 		new Kibble11((this.symbol2<<8)|(this.symbol)),
-		new Kibble11((this._x48<<24)),
+		new Kibble11(this.opt7),
 		new Kibble11(this.albumArtId),
-		new Kibble11(this._x55),
-		new Kibble11(this._x59<<8),
-		new Kibble11(this._x5f),
+		new Kibble11(this.opt9),
+		new Kibble11(this.opta),
+		new Kibble11(this.optb),
 	]);
 	return b.toBuffer();
 }
