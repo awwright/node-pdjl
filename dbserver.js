@@ -105,7 +105,7 @@ module.exports.assertParsed = assertParsed;
 function assertParsed(data, info){
 	var backwards = info.toBuffer();
 	if(info.length!==data.length){
-		console.error('Incoming/generated item length mismatch ('+data.length+'/'+backwards.length+')!');
+		console.error('Incoming/generated item length mismatch ('+data.length+'vs'+info.length+'/'+backwards.length+')!');
 		console.error(formatBuf(data));
 		console.error(formatBuf(backwards));
 		throw new Error('Incoming/generated length mismatch');
@@ -134,6 +134,7 @@ module.exports.Kibble = {
 };
 var typeLabels = module.exports.typeLabels = {
 	"1000": 'load root menu',
+	"2002": 'request track information',
 	"2003": 'request album art',
 	"3000": 'render menu',
 	"4000": 'response',
@@ -280,6 +281,7 @@ var mapItem = module.exports.mapItem = {
 	"11": Item11,
 	"14": Item14,
 	"20": Item20,
+	"2002": Item2002,
 	"2003": Item2003,
 	"21": Item21,
 	"22": Item22,
@@ -549,13 +551,35 @@ Item20.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
+// Track information request
+module.exports.Item2002 = Item2002;
+function Item2002(data){
+	this.method = 0x20;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.affectedMenu = message.args[0].data[1];
+		this.resourceId = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data;
+	}
+	this.length = 0x20 + 5 + 5;
+}
+Item2002.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x20, 0x02, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11(this.resourceId),
+	]);
+	return b.toBuffer();
+}
+
 // Album art request
 module.exports.Item2003 = Item2003;
 function Item2003(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
 		this.method = 0x20;
-		this.listing = data[0x0c];
 		console.log(data.slice(0x10));
 		this.m2 = data[0x16];
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
@@ -566,7 +590,7 @@ function Item2003(data){
 	}
 }
 Item2003.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x20, this.listing, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x20, 0x03, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(this.resourceId),
 	]);
@@ -676,7 +700,7 @@ Item3e.prototype.toBuffer = function toBuffer(){
 // A general success packet, carries no attached data
 // If a response to a menu navigation request, carries the number of menu items in the requested menu
 module.exports.Item4000 = Item4000;
-function Item4000(r, responseBody, aaaa, len){
+function Item4000(r, aaaa, len){
 	this.length = 0x2a;
 	if(r instanceof Buffer){
 		var data = r;
@@ -688,7 +712,6 @@ function Item4000(r, responseBody, aaaa, len){
 		for(var n in data) this[n]=data[n];
 	}else{
 		this.requestId = r;
-		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
 		this.requestType = aaaa;
 		this.itemCount = len;
 	}
@@ -926,7 +949,10 @@ function handleDBServerConnection(device, socket) {
 						opt9: 1,
 						// bit mask seems to control different properties
 						// any value in least sig byte seems to grey out and disable the track
-						opta: 0xff,
+						// any value in second-sig byte shows an H-note instead of simply the music note
+						// third-sig byte seems to do nothing
+						opta: 0,
+						// don't know what this does
 						optb: 7,
 					}),
 					new Item41(r, 0x04, 0x1779, "Exactly", 0x0d, 0x35e8),
@@ -947,7 +973,7 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
 				];
 			}
-			var response_prerequest = new Item4000(r, 0, type, menu.items.length);
+			var response_prerequest = new Item4000(r, type, menu.items.length);
 			sendItems([response_prerequest]);
 			return;
 		}
@@ -999,7 +1025,7 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x37, "Playlist 6"),
 				];
 			}
-			var response_prerequest = new Item4000(r, 0, type, menu.items.length);
+			var response_prerequest = new Item4000(r, type, menu.items.length);
 			console.log('  navigate to playlist id='+info.playlist.toString(16)+'');
 			sendItems([response_prerequest]);
 			return;
@@ -1017,13 +1043,29 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x8b, 6, "Key"),
 				new Item41(r, 0x92, 7, "Duration"),
 			];
-			var response_prerequest = new Item4000(r, 0, type, menu.items);
+			var response_prerequest = new Item4000(r, type, menu.items.length);
+			sendItems([response_prerequest]);
+			return;
+		}
+		if(info instanceof Item2002){
+			var affectedMenu = info.affectedMenu;
+			var menu = state.menus[affectedMenu] = {};
+			menu.items = [
+				new Item41(r, 0xa1, 0, "Default"),
+				new Item41(r, 0xa2, 1, "Alphabet"),
+				new Item41(r, 0x81, 2, "Artist"),
+				new Item41(r, 0x82, 3, "Album"),
+				new Item41(r, 0x85, 4, "Tempo"),
+				new Item41(r, 0x86, 5, "Rating"),
+				new Item41(r, 0x8b, 6, "Key"),
+				new Item41(r, 0x92, 7, "Duration"),
+			];
+			var response_prerequest = new Item4000(r, type, menu.items.length);
 			sendItems([response_prerequest]);
 			return;
 		}
 		if(info instanceof Item2003){
 			console.log('> DBServer album art request');
-			var len0 = (artBlob.length>>8) & 0xff;
 			var len1 = (artBlob.length>>0) & 0xff;
 			var response = new Item(r, 0x40, 0, [6,6,6,3,0,0,0,0,0,0,0,0], [
 				new Kibble11(0x2003),
@@ -1035,7 +1077,7 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item21){
-			var response_prerequest = new Item4000(r, 0, type, 0x06);
+			var response_prerequest = new Item4000(r, type, 0x06);
 			console.log('  get track data');
 			sendItems([response_prerequest]);
 			return;
@@ -1077,7 +1119,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response);
 			return;
 		}
-		throw new Error('Unknown incoming data/request '+info.a.toString(16));
+		throw new Error('Unknown incoming data/request '+message.a.toString(16));
 	});
 	socket.on('end', function() {
 		console.log('DBServer: Connection closed');
