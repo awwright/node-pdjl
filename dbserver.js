@@ -320,7 +320,8 @@ function parseMessage(data){
 	offset += info3.length;
 	var items = info2.d;
 	// Bug? Maybe I'm missing something
-	if(info2.a==0x20 && info2.b==0x04 && items==5) items=4;
+	if(info2.a==0x20 && info2.b==0x04) items=4;
+	item.d = info2.d;
 	for(var i=0; i<items; i++){
 		var infon = parseKibble(data.slice(offset));
 		item.args.push(infon);
@@ -348,7 +349,7 @@ Item.prototype.toBuffer = function toBuffer(){
 	var k = [
 		new Kibble11(0x872349ae),
 		Kibble11.requestId(this.requestId),
-		new Kibble10({a:this.a, b:this.b, d:this.args.length}),
+		new Kibble10({a:this.a, b:this.b, d:this.d||this.args.length}),
 		Kibble14.blob(new Buffer(this.meta)),
 	].concat(this.args);
 	return Buffer.concat(k.map(function(v){ return v.toBuffer(); }));
@@ -667,14 +668,7 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 		this._x17 = data[0x17]; // This seems to be 0x03 if album art, 0x00 otherwise
 		this._x23 = data[0x23];
 		this._x24 = data[0x24];
-		this.itemCount = (data[0x28]<<8) + (data[0x29]);
-		if(this._x0e==0x04){
-			this._x2d = data[0x2d];
-			this._x2e = data[0x2e];
-			this._x2f = data[0x2f];
-			this.length = 0x34 + (data[0x32]<<8) + (data[0x33]<<0);
-			this.bodyData = data.slice(0x34, this.length);
-		}
+		this.itemCount = (data[0x28]<<8) | (data[0x29]);
 	}else if(typeof r=='object'){
 		var data = r;
 		for(var n in data) this[n]=data[n];
@@ -691,37 +685,12 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 	}
 }
 Item40.prototype.toBuffer = function toBuffer(){
-	// aaaa seems to list whichever "method" was used by the request in byte 0xb except for 0x30 which is 0
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x0c = this.responseBody;
-	var _x0e = this._x0e;
-	var _x16 = this._x16;
-	var _x17 = this._x17;
-	var _x23 = this._x23;
-	var _x24 = this._x24;
-	var len0 = (this.itemCount>>8) & 0xff;
-	var len1 = (this.itemCount>>0) & 0xff;
-	var b = new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x40, _x0c, 0x0f, _x0e, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, _x17,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x00, 0x00, _x23, _x24, 0x11, 0x00, 0x00,  len0, len1,
+	// This doesn't do responses for album art
+	var response = new Item(this.requestId, 0x40, this.responseBody, [6,6,this._x16,this._x17,0,0,0,0,0,0,0,0], [
+		new Kibble11((this._x23<<8)|(this._x24)),
+		new Kibble11(this.itemCount),
 	]);
-	if(this._x0e==0x04){
-		var _x32 = (this.bodyData.length>>8) & 0xff;
-		var _x33 = (this.bodyData.length>>0) & 0xff;
-		var _x2d = this._x2d;
-		var _x2e = this._x2e;
-		var _x2f = this._x2f;
-		b = Buffer.concat([
-			b,
-			new Buffer([
-				0x11, 0x00, 0x00, _x2d, _x2e, _x2f,  0x00, 0x00, _x32, _x33,
-			]),
-			this.bodyData,
-		]);
-	}
-	return b;
+	return response.toBuffer();
 }
 
 module.exports.Item41 = Item41;
