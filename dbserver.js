@@ -79,8 +79,10 @@ function formatBuf(b){
 		if(itemType==0x3000 && kibble==4) x += '  (menu='+menuLabels[b1]+')';
 		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
 		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
-		// Menu item
+		// responses
+		if(itemType==0x4000 && kibble==4) x += '  (method type of call)';
 		if(itemType==0x4000 && kibble==5) x += '  (menu item count)';
+		// Menu item
 		if(itemType==0x4101 && kibble==4) x += '  (numeric2 field)';
 		if(itemType==0x4101 && kibble==5) x += '  (numeric1 field)';
 		if(itemType==0x4101 && kibble==6) x += '  (byte size field)';
@@ -141,12 +143,15 @@ var typeLabels = module.exports.typeLabels = {
 	"2003": 'request album art',
 	"2004": 'FIXME request track something or other',
 	"2102": 'request track data',
+	"2104": 'request more track data',
 	"3000": 'render menu',
 	"4000": 'response',
 	"4001": 'render menu (header)',
+	"4002": 'album art',
 	"4101": 'render menu (menu item)',
 	"4201": 'render menu (footer)',
-	"4002": 'album art',
+	"4402": 'track waveform data response',
+	"4702": 'FIXME no clue',
 };
 
 // A kibble is... one of the items in the struct that usually starts with 0x11
@@ -299,6 +304,7 @@ var mapItem = module.exports.mapItem = {
 	"2003": Item2003,
 	"2004": Item2004,
 	"2102": Item2102,
+	"2104": Item2104,
 	"22": Item22,
 	"30": Item30,
 	"31": Item31,
@@ -307,6 +313,7 @@ var mapItem = module.exports.mapItem = {
 	"4002": Item4002,
 	"41": Item41,
 	"42": Item42,
+	"4402": Item4402,
 };
 
 module.exports.parseMessage = parseMessage;
@@ -666,6 +673,28 @@ Item2102.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
+// A request for more track data
+module.exports.Item2104 = Item2104;
+function Item2104(data){
+	this.method = 0x20;
+	this.length = 0x20 + 5 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.resourceId = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item2104.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x21, 0x04, [
+		new Kibble11(0x03080401),
+		new Kibble11(this.resourceId),
+	]);
+	return b.toBuffer();
+}
+
 
 module.exports.Item22 = Item22;
 function Item22(data){
@@ -884,6 +913,30 @@ Item41.prototype.toBuffer = function toBuffer(){
 		new Kibble11(this.opt9),
 		new Kibble11(this.opta),
 		new Kibble11(this.optb),
+	]);
+	return b.toBuffer();
+}
+
+module.exports.Item4402 = Item4402;
+function Item4402(requestId){
+	if(requestId instanceof Buffer) var message = parseMessage(requestId);
+	else if (requestId instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.length = message.length;
+		this.method = message.args[0].uint;
+		this.body = message.args[3].data;
+	}else if(typeof requestId=='object'){
+		var data = requestId;
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item4402.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x44, 0x02, [
+		new Kibble11(0x2004),
+		new Kibble11(0),
+		new Kibble11(this.body.length),
+		Kibble14.blob(this.body),
 	]);
 	return b.toBuffer();
 }
@@ -1116,7 +1169,6 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item2003){
-			var len1 = (artBlob.length>>0) & 0xff;
 			var response = new Item(r, 0x40, 0, [
 				new Kibble11(0x2003),
 				new Kibble11(0),
@@ -1127,12 +1179,12 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item2004){
-			var len1 = (artBlob.length>>0) & 0xff;
+			var blob = new Buffer([0x02, 0x05, 0x02, 0x05, 0x05, 0x05, 0x03, 0x05,]);
 			var response = new Item(r, 0x40, 0, [
-				new Kibble11(0x2003),
+				new Kibble11(0x2004),
 				new Kibble11(0),
-				new Kibble11(artBlob.length),
-				Kibble14.blob(artBlob),
+				new Kibble11(blob.length),
+				Kibble14.blob(blob),
 			]);
 			sendItems([response]);
 			return;
