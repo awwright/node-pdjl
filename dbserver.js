@@ -123,6 +123,7 @@ var menuLabels = module.exports.menuLabels = {
 	1: 'mainmenu',
 	2: 'submenu',
 	5: 'sortmenu',
+	8: 'system',
 };
 
 // The lower level item parsing
@@ -138,6 +139,7 @@ var typeLabels = module.exports.typeLabels = {
 	"1000": 'load root menu',
 	"2002": 'request track information',
 	"2003": 'request album art',
+	"2004": 'FIXME request track something or other',
 	"2102": 'request track data',
 	"3000": 'render menu',
 	"4000": 'response',
@@ -224,7 +226,7 @@ Kibble11.prototype.toBuffer = function toBuffer(){
 function Kibble14(data){
 	this.meta = 0x03;
 	this.type = 0x14;
-	this.length = 5;
+	this.length = 0;
 	if(data instanceof Buffer){
 		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
 		var size = data.readUInt32BE(1);
@@ -232,10 +234,16 @@ function Kibble14(data){
 	}
 }
 Kibble14.prototype.setData = function setData(buf){
-	this.data = buf;
-	this.length = 5 + this.data.length;
+	if(!buf || buf.length==0){
+		this.data = null;
+		this.length = 0;
+	}else{
+		this.data = buf;
+		this.length = 5 + this.data.length;
+	}
 }
 Kibble14.prototype.toBuffer = function toBuffer(){
+	if(!this.data ||this.data.length==0) return new Buffer(0);
 	var size = new Buffer([0x14, 0, 0, 0, 0]);
 	size.writeUInt32BE(this.data.length, 1);
 	return Buffer.concat([size, this.data], 5+this.data.length);
@@ -289,6 +297,7 @@ var mapItem = module.exports.mapItem = {
 	"20": Item20,
 	"2002": Item2002,
 	"2003": Item2003,
+	"2004": Item2004,
 	"2102": Item2102,
 	"22": Item22,
 	"30": Item30,
@@ -346,6 +355,10 @@ function parseMessage(data){
 	item.d = info2.d;
 	for(var i=0; i<info3.data.length; i++){
 		if(!info3.data[i]) continue;
+		if(info3.data[i]==0x03 && item.args[i-1].uint==0){
+			item.args.push(Kibble14.blob(new Buffer(0)));
+			continue;
+		}
 		var infon = parseKibble(data.slice(offset));
 		item.args.push(infon);
 		offset += infon.length;
@@ -410,7 +423,7 @@ ItemHello.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0x872349ae).toBuffer(),
 		new Kibble11(0xfffffffe).toBuffer(),
 		new Buffer([0x10, 0x00, 0x00, 0x0f, 0x01]),
-		Kibble14.blob(new Buffer([0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])).toBuffer(),
+		Kibble14.blob(new Buffer([6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).toBuffer(),
 		new Kibble11(this.channel).toBuffer(),
 	]);
 }
@@ -431,7 +444,7 @@ ItemSup.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0x872349ae).toBuffer(),
 		new Kibble11(0xfffffffe).toBuffer(),
 		new Buffer([0x10, 0x40, 0x00, 0x0f, 0x02]), // sup reply is 0x02
-		Kibble14.blob(new Buffer([0x06, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])).toBuffer(),
+		Kibble14.blob(new Buffer([6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).toBuffer(),
 		new Kibble11(0).toBuffer(),
 		new Kibble11(this.channel).toBuffer(),
 	]);
@@ -585,14 +598,14 @@ Item2002.prototype.toBuffer = function toBuffer(){
 // Album art request
 module.exports.Item2003 = Item2003;
 function Item2003(data){
-	if(data instanceof Buffer){
-		this.length = data.length;
-		this.method = 0x20;
-		console.log(data.slice(0x10));
-		this.m2 = data[0x16];
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
-		this.affectedMenu = data[0x22];
-		this.resourceId = (data[0x28]<<8) + (data[0x29]);
+	this.length = data.length;
+	this.method = 0x20;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.affectedMenu = message.args[0].data[1];
+		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
 	}
@@ -605,14 +618,42 @@ Item2003.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
+// Track data request
+module.exports.Item2004 = Item2004;
+function Item2004(data){
+	this.length = data.length;
+	this.method = 0x20;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.affectedMenu = message.args[0].data[1];
+		this.resourceId = message.args[2].uint;
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item2004.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x20, 0x04, [
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11(4),
+		new Kibble11(this.resourceId),
+		new Kibble11(0),
+		new Kibble14(),
+	]);
+	return b.toBuffer();
+}
+
 // A request for track data
 module.exports.Item2102 = Item2102;
 function Item2102(data){
-	if(data instanceof Buffer){
-		this.length = data.length;
-		this.method = 0x21;
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
-		this.resourceId = (data[0x28]<<8) + (data[0x29]);
+	this.method = 0x20;
+	this.length = 0x20 + 5 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
 	}
@@ -1085,9 +1126,29 @@ function handleDBServerConnection(device, socket) {
 			sendItems([response]);
 			return;
 		}
-		if(info instanceof Item21){
-			var response_prerequest = new Item4000(r, type, 0x06);
-			console.log('  get track data');
+		if(info instanceof Item2004){
+			var len1 = (artBlob.length>>0) & 0xff;
+			var response = new Item(r, 0x40, 0, [
+				new Kibble11(0x2003),
+				new Kibble11(0),
+				new Kibble11(artBlob.length),
+				Kibble14.blob(artBlob),
+			]);
+			sendItems([response]);
+			return;
+		}
+		if(info instanceof Item2102){
+			var affectedMenu = info.affectedMenu;
+			var menu = state.menus[affectedMenu] = {};
+			menu.items = [
+				new Item41(r, 0x0b, 121, ""), //Duration
+				new Item41(r, 0x0d, 13800, ""), // Tempo
+				new Item41(r, 0x23, 0x1778, ""), // ???
+				new Item41(r, 0x0f, 6, "Fm"), // Key field
+				new Item41(r, 0x0a, 2, ""), // Rating (n/5 stars)
+				new Item41(r, 0x13, 0, "STRING"), // ?
+			];
+			var response_prerequest = new Item4000(r, type, menu.items.length);
 			sendItems([response_prerequest]);
 			return;
 		}
