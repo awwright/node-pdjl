@@ -459,7 +459,7 @@ Item10.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
 		new Kibble11(this.sortOrder),
 	]);
-	if(_x0c==0){
+	if(this.listing==0){
 		b.args.push(new Kibble11(0x00ffffff));
 	}
 	return b.toBuffer();
@@ -728,7 +728,6 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.label = '';
 		for(var i=0; i<labelLen; i++) this.label += String.fromCharCode(data.readUInt16BE(0x34+i*2));
 		this.label2 = '';
-		this._x3a = data[0x3a+start1]; // 0x02 normally, observed 0x2a with a second column view
 		for(var i=0; i<label2Len; i++) this.label2 += String.fromCharCode(data.readUInt16BE(0x40+start1+i*2));
 		this._x48 = data[0x48+start2]; // 0x00 normally, seems to be set to 0x01 when using the second column
 		this.albumArtId = (data[0x4f+start2]<<8) + (data[0x50+start2]);
@@ -744,7 +743,6 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.symbol = symbol;
 		this.numeric = numeric;
 		this.label = label;
-		this._x3a = 2;
 		this.symbol2 = symbol2 || 0;
 		this.numeric2 = numeric2 || 0;
 		this.label2 = label2 || "";
@@ -756,10 +754,9 @@ Item41.prototype.toBuffer = function toBuffer(){
 		new Kibble11((this._x22<<16) | this.numeric2),
 		new Kibble11(this.numeric),
 		new Kibble11(this.label.length*2 + 2),
-		new Kibble26(this.label),
-		new Kibble11(this._x3a),
+		Kibble26.string(this.label),
 		new Kibble11(this.label2.length*2 + 2),
-		new Kibble26(this.label2),
+		Kibble26.string(this.label2),
 		// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
 		new Kibble11((this.symbol2<<8)|(this.symbol)),
 		new Kibble11((this._x48<<24)),
