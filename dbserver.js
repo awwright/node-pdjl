@@ -304,7 +304,9 @@ module.exports.parseMessage = parseMessage;
 function parseMessage(data){
 	//console.log('Parse: ', data);
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
+	var offset = 0;
 	var info0 = parseKibble(data);
+	offset += info0.length;
 	// The first packet that comes in on the connection always seems to be the handshake:
 	// the same five bytes in both directions, client first
 	if(info0 instanceof Kibble11 && info0.uint===1){
@@ -315,10 +317,10 @@ function parseMessage(data){
 		throw new Error('Invalid magic header');
 	}
 	// Look up second and third kibble
-	var offset = info0.length;
 	var info1 = parseKibble(data.slice(offset));
 	offset += info1.length;
 	var info2 = parseKibble(data.slice(offset));
+	offset += info2.length;
 	if(!(info2 instanceof Kibble10)){
 		throw new Error('Missing Kibble10');
 	}
@@ -333,21 +335,17 @@ function parseMessage(data){
 			throw new Error('this is not my cat: '+info2.hex);
 		}
 	}
-	// And the fourth one also seems to be standard
-	// no clue what it does though
-	offset += info2.length;
+	// info3 tells us which arguments to expect
 	var info3 = parseKibble(data.slice(offset));
+	offset += info3.length;
 	if(!(info3 instanceof Kibble14)){
 		throw new Error('Missing Kibble14');
 	}
 	// Everything after here is optional arguments
-	var item = new Item(info1.uint & 0xffff, info2.a, info2.b, info3.data, []);
-	offset += info3.length;
-	var items = info2.d;
-	// Bug? Maybe I'm missing something
-	if(info2.a==0x20 && info2.b==0x04) items=4;
+	var item = new Item(info1.uint & 0xffff, info2.a, info2.b, []);
 	item.d = info2.d;
-	for(var i=0; i<items; i++){
+	for(var i=0; i<info3.data.length; i++){
+		if(!info3.data[i]) continue;
 		var infon = parseKibble(data.slice(offset));
 		item.args.push(infon);
 		offset += infon.length;
