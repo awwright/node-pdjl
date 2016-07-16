@@ -30,7 +30,7 @@ function pushSection(localDirection){
 	//currentSection.pretty = DBServer.formatBuf(currentSection.data);
 	currentSection.packets = [];
 	for(var i=0; currentSection.data[i]>=0;){
-		var item = DBServer.parseData(currentSection.data.slice(i));
+		var item = DBServer.parseMessage(currentSection.data.slice(i));
 		item.original = currentSection.data.slice(i, i+item.length);
 		i += item.length;
 		currentSection.packets.push(item);

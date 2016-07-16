@@ -146,8 +146,10 @@ var typeLabels = module.exports.typeLabels = {
 // A kibble is... one of the items in the struct that usually starts with 0x11
 module.exports.parseKibble = parseKibble;
 function parseKibble(data){
+	//console.log('parseKibble', data);
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
 	var type = data[0];
+	if(!type) throw new Error('No data available');
 	var typeHex = data.slice(0,1).toString('hex');
 	var KibbleStruct = module.exports.Kibble[typeHex];
 	if(!KibbleStruct) throw new Error('Unknown kibble type '+typeHex);
@@ -273,8 +275,8 @@ module.exports.Item = {
 	"42": Item42,
 };
 
-module.exports.parseData = parseData;
-function parseData(data){
+module.exports.parseMessage = parseMessage;
+function parseMessage(data){
 	//console.log('Parse: ', data);
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
 	var info0 = parseKibble(data);
@@ -307,14 +309,31 @@ function parseData(data){
 		}
 	}
 	// And the fourth one also seems to be standard
+	// no clue what it does though
 	offset += info2.length;
 	var info3 = parseKibble(data.slice(offset));
 	if(!(info3 instanceof Kibble14)){
 		throw new Error('Missing Kibble14');
 	}
 	// Everything after here is optional arguments
-	var ItemStruct = module.exports.Item[info2.a.toString(16)];
-	if(!ItemStruct) throw new Error('Unknown item type '+info2.a.toString(16));
+	var item = new Item(info1.uint & 0xffff, info2.a, info2.b, info3.data, []);
+	offset += info3.length;
+	var items = info2.d;
+	// Bug? Maybe I'm missing something
+	if(info2.a==0x20 && info2.b==0x04 && items==5) items=4;
+	for(var i=0; i<items; i++){
+		var infon = parseKibble(data.slice(offset));
+		item.args.push(infon);
+		offset += infon.length;
+	}
+	item.length = item.toBuffer().length;
+	return item;
+}
+
+module.exports.parseItem = parseItem;
+function parseItem(message, data){
+	var ItemStruct = module.exports.Item[message.a.toString(16)];
+	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
 	return new ItemStruct(data);
 }
 
@@ -323,15 +342,15 @@ function Item(r, a, b, meta, kibbles){
 	this.a = a;
 	this.b = b;
 	this.meta = meta;
-	this.kibbles = kibbles;
+	this.args = kibbles;
 }
 Item.prototype.toBuffer = function toBuffer(){
 	var k = [
 		new Kibble11(0x872349ae),
 		Kibble11.requestId(this.requestId),
-		new Kibble10({a:this.a, b:this.b, d:this.kibbles.length}),
+		new Kibble10({a:this.a, b:this.b, d:this.args.length}),
 		Kibble14.blob(new Buffer(this.meta)),
-	].concat(this.kibbles);
+	].concat(this.args);
 	return Buffer.concat(k.map(function(v){ return v.toBuffer(); }));
 }
 
@@ -408,7 +427,6 @@ function Item10(data){
 		this.length = data.length;
 		this.method = 0x10;
 		this.listing = data[0x0c];
-		this._x0e = data[0x0e];
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 		this.affectedMenu = data[0x22];
 		this.submenuItems = data[0x16]; // Seems to be set to 0x06 if the request is a submenu
@@ -422,22 +440,14 @@ Item10.prototype.toBuffer = function toBuffer(){
 	var _x08 = (this.requestId>>8) & 0xff;
 	var _x09 = (this.requestId>>0) & 0xff;
 	var _x0c = this.listing;
-	var _x0e = this._x0e;
-	var _x16 = this.submenuItems;
-	var _x22 = this.affectedMenu;
-	var _x29 = this.sortOrder;
-	var b = new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x10, _x0c, 0x0f, _x0e, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, _x16, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  0x00, _x29,
+	var b = new Item(this.requestId, 0x10, this.listing, [6,6,this.submenuItems,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
+		new Kibble11(this.sortOrder),
 	]);
 	if(_x0c==0){
-		// idk if this is the significant byte, but in some cases this extra five bytes is sent
-		b = Buffer.concat([b, new Buffer([
-			0x11, 0x00, 0xff, 0xff, 0xff,
-		])]);
+		b.args.push(new Kibble11(0x00ffffff));
 	}
-	return b;
+	return b.toBuffer();
 }
 
 module.exports.Item11 = Item11;
@@ -453,11 +463,11 @@ function Item11(data){
 		//this.length = data[0x33] ? 0x34 : 0x2f;
 		this.length = 0x34;
 		this.method = 0x11;
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.requestId = (data[0x08]<<8) | (data[0x09]);
 		this._x16 = data[0x16];
 		this._x17 = data[0x17];
 		this.affectedMenu = data[0x22];
-		this.playlist = (data[0x2d]<<8) + data[0x2e];
+		this.playlist = (data[0x2d]<<8) | data[0x2e];
 		this._x33 = data[0x33];
 	}else{
 		for(var n in data) this[n]=data;
@@ -491,21 +501,18 @@ function Item14(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
 		this.method = 0x14;
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.requestId = (data[0x08]<<8) | (data[0x09]);
 		this.affectedMenu = data[0x22];
 	}else{
 		for(var n in data) this[n]=data;
 	}
 }
 Item14.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x22 = this.affectedMenu;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x14, 0x00, 0x0f, 0x03, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x11, 0x03, _x22, 0x04, 0x01, 0x11, 0x00, 0x00,  0x00, 0x00, 0x11, 0x00, 0x00, 0x10, 0x04,
-	]);
+	return new Item(this.requestId, 0x14, 0x00, [6,6,6,0,0,0,0,0,0,0,0,0], [
+		new Item11(0x03000401|(this.affectedMenu<<16)),
+		new Item11(0),
+		new Item11(0x1004),
+	]).toBuffer();
 }
 
 // Album art request
@@ -851,20 +858,16 @@ function handleDBServerConnection(device, socket) {
 		var data = state.buffer.length ? state.buffer.concat(newdata) : newdata;
 		console.log('< DBServer incoming request');
 		console.log(formatBuf(data));
-		var info = parseData(data);
-		var kibble = parseBiscut(data);
-		console.log(kibble);
-		console.log('  DBServer '+info.constructor.name);
-		var r = info.requestId;
-		var type = info.method;
-		assertParsed(data, info);
-		console.log(info);
+		var message = parseMessage(data);
+		console.log('  DBServer type='+((message.a<<8)|(message.b<<0)).toString(16));
+		var r = message.requestId;
+		var type = message.a;
+		assertParsed(data, message);
 
-		var magic_handshake = new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
 		if(state.initialized===0){
 			// The first packet that comes in on the connection always seems to be the handshake:
 			// the same five bytes in both directions, client first
-			if(info instanceof ItemHandshake){
+			if(message instanceof ItemHandshake){
 				console.log('> DBServer ItemHandshake');
 				socket.write(new ItemHandshake().toBuffer());
 			}else{
@@ -874,8 +877,8 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		// The second packet that comes in seems to be this "hello" packet, the same 0x2a bytes except for the last one
-		if(info instanceof ItemHello){
-			console.log('  chan='+info.channel);
+		if(message instanceof ItemHello){
+			console.log('  chan='+message.channel);
 			// Form the response
 			console.log('> DBServer ItemSup');
 			sendItems([new ItemSup(device.channel)]);
@@ -888,11 +891,12 @@ function handleDBServerConnection(device, socket) {
 			console.error(data);
 			throw new Error('Invalid magic header');
 		}
-		if(info instanceof Item10){
+		if(message.a==0x10){
+			var affectedMenu = message.args[0].data[1];
 			console.log('  navigate to device menu');
-			var menu = state.menus[info.affectedMenu] = {};
-			menu.method = info.method;
-			menu.listing = info.listing;
+			var menu = state.menus[affectedMenu] = {};
+			menu.method = message.a;
+			menu.listing = message.b;
 			menu.playlist = 0; // undefined
 			if(menu.listing==0x00){
 				menu.items = [
@@ -951,11 +955,18 @@ function handleDBServerConnection(device, socket) {
 				];
 			}
 			var response_prerequest = new Item40(r, 0, type, 0x02, menu.items.length);
-			console.log(response_prerequest);
-			console.log('> DBServer do navigate');
 			sendItems([response_prerequest]);
 			return;
 		}
+
+		// Parse message contents
+		if(message instanceof Item){
+			var info = parseItem(message, data);
+		}else{
+			var info = message;
+		}
+		assertParsed(data, info);
+
 		if(info instanceof Item11){
 			var menu = state.menus[info.affectedMenu] = {};
 			if(info.playlist==0x40){
@@ -996,12 +1007,13 @@ function handleDBServerConnection(device, socket) {
 				];
 			}
 			var response_prerequest = new Item40(r, 0, type, 0x05, menu.items.length);
-			console.log('> DBServer navigate to playlist id='+info.playlist.toString(16)+'');
+			console.log('  navigate to playlist id='+info.playlist.toString(16)+'');
 			sendItems([response_prerequest]);
 			return;
 		}
 		if(info instanceof Item14){
-			var menu = state.menus[info.affectedMenu] = {};
+			var affectedMenu = info.args[0].data[1];
+			var menu = state.menus[affectedMenu] = {};
 			menu.items = [
 				new Item41(r, 0xa1, 0, "Default"),
 				new Item41(r, 0xa2, 1, "Alphabet"),
@@ -1031,18 +1043,21 @@ function handleDBServerConnection(device, socket) {
 		}
 		if(info instanceof Item21){
 			var response_prerequest = new Item40(r, 0, type, 0x06, 0x06);
-			console.log('> DBServer get track data');
+			console.log('  get track data');
 			sendItems([response_prerequest]);
 			return;
 		}
-		if(info instanceof Item30){
-			var menu = state.menus[info.affectedMenu];
-			var menuLabel = menuLabels[info.affectedMenu] || info.affectedMenu.toString(16);
+		if(message.a==0x30){
+			var affectedMenu = message.args[0].data[1];
+			var offset = message.args[1].uint;
+			var limit = message.args[2].uint;
+			var menu = state.menus[affectedMenu];
+			var menuLabel = menuLabels[affectedMenu] || affectedMenu.toString(16);
 			var response = menu.items.slice(info.offset, info.offset+6);
 			response.forEach(function(v){ v.requestId = info.requestId; });
 			response.unshift(new Item40(r, 0x01, 0x00, 0x01, 0));
 			response.push(new Item42(r));
-			console.log('> DBServer renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
+			console.log('  renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
 			sendItems(response);
 			return;
 		}
@@ -1069,7 +1084,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response);
 			return;
 		}
-		throw new Error('Unknown incoming data/request '+type.toString(16));
+		throw new Error('Unknown incoming data/request '+info.a.toString(16));
 	});
 	socket.on('end', function() {
 		console.log('DBServer: Connection closed');
