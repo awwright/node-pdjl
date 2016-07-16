@@ -105,7 +105,7 @@ module.exports.assertParsed = assertParsed;
 function assertParsed(data, info){
 	var backwards = info.toBuffer();
 	if(info.length!==data.length){
-		console.error('Incoming/generated item length mismatch!');
+		console.error('Incoming/generated item length mismatch ('+data.length+'/'+backwards.length+')!');
 		console.error(formatBuf(data));
 		console.error(formatBuf(backwards));
 		throw new Error('Incoming/generated length mismatch');
@@ -137,9 +137,9 @@ var typeLabels = module.exports.typeLabels = {
 	"2003": 'request album art',
 	"3000": 'render menu',
 	"4000": 'response',
-	"4001": 'render menu header',
-	"4101": 'render menu item',
-	"4201": 'render menu footer',
+	"4001": 'render menu (header)',
+	"4101": 'render menu (menu item)',
+	"4201": 'render menu (footer)',
 	"4002": 'album art',
 };
 
@@ -280,11 +280,14 @@ var mapItem = module.exports.mapItem = {
 	"11": Item11,
 	"14": Item14,
 	"20": Item20,
+	"2003": Item2003,
 	"21": Item21,
 	"22": Item22,
 	"30": Item30,
 	"31": Item31,
-	"40": Item40,
+	"4000": Item4000,
+	"4001": Item4001,
+	"4002": Item4002,
 	"41": Item41,
 	"42": Item42,
 };
@@ -520,8 +523,8 @@ Item14.prototype.toBuffer = function toBuffer(){
 	]).toBuffer();
 }
 
-// Album art request
 // Also a track info menu request???
+// For album art request see Item2003
 module.exports.Item20 = Item20;
 function Item20(data){
 	if(data instanceof Buffer){
@@ -542,6 +545,30 @@ Item20.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(this.resourceId),
 		new Kibble11(1),
+	]);
+	return b.toBuffer();
+}
+
+// Album art request
+module.exports.Item2003 = Item2003;
+function Item2003(data){
+	if(data instanceof Buffer){
+		this.length = data.length;
+		this.method = 0x20;
+		this.listing = data[0x0c];
+		console.log(data.slice(0x10));
+		this.m2 = data[0x16];
+		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.affectedMenu = data[0x22];
+		this.resourceId = (data[0x28]<<8) + (data[0x29]);
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item2003.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x20, this.listing, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
 }
@@ -646,19 +673,15 @@ Item3e.prototype.toBuffer = function toBuffer(){
 	]);
 }
 
-module.exports.Item40 = Item40;
-function Item40(r, responseBody, aaaa, bbbb, len){
+// A general success packet, carries no attached data
+// If a response to a menu navigation request, carries the number of menu items in the requested menu
+module.exports.Item4000 = Item4000;
+function Item4000(r, responseBody, aaaa, len){
 	this.length = 0x2a;
 	if(r instanceof Buffer){
 		var data = r;
-		this.requestId = (data[8]<<8) + (data[9]);
-		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
-		this.responseBody = data[0x0c]; // 0x02 for album art, 0x01 if there's menu items, 0x00 if last message
-		this._x0e = data[0x0e]; // This seems to be 0x04 if album art, 0x02 otherwise
-		this._x16 = data[0x16]; // This seems to be 0x06 if album art, 0x00 otherwise
-		this._x17 = data[0x17]; // This seems to be 0x03 if album art, 0x00 otherwise
-		this._x23 = data[0x23];
-		this._x24 = data[0x24];
+		this.requestId = (data[8]<<8) | (data[9]);
+		this.requestType = (data[0x23]<<8) | (data[0x24]);
 		this.itemCount = (data[0x28]<<8) | (data[0x29]);
 	}else if(typeof r=='object'){
 		var data = r;
@@ -666,20 +689,69 @@ function Item40(r, responseBody, aaaa, bbbb, len){
 	}else{
 		this.requestId = r;
 		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
-		this.responseBody = responseBody;
-		this._x0e = 0x02;
-		this._x16 = 0;
-		this._x17 = 0;
-		this._x23 = aaaa;
-		this._x24 = bbbb;
+		this.requestType = aaaa;
 		this.itemCount = len;
 	}
 }
-Item40.prototype.toBuffer = function toBuffer(){
-	// This doesn't do responses for album art
-	var response = new Item(this.requestId, 0x40, this.responseBody, [6,6,this._x16,this._x17,0,0,0,0,0,0,0,0], [
-		new Kibble11((this._x23<<8)|(this._x24)),
+Item4000.prototype.toBuffer = function toBuffer(){
+	var response = new Item(this.requestId, 0x40, 0x00, [6,6,0,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(this.requestType),
 		new Kibble11(this.itemCount),
+	]);
+	return response.toBuffer();
+}
+
+// Response with attached menu items packet
+module.exports.Item4001 = Item4001;
+function Item4001(r, responseBody, aaaa, len){
+	this.length = 0x2a;
+	if(r instanceof Buffer) var message = parseMessage(r);
+	else if (requestId instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.opt1 = message.args[1].uint;
+	}else if(typeof r=='object'){
+		var data = r;
+		for(var n in data) this[n]=data[n];
+	}else{
+		this.requestId = r;
+		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
+		this.responseBody = responseBody;
+		this.opt1 = aaaa;
+	}
+}
+Item4001.prototype.toBuffer = function toBuffer(){
+	var response = new Item(this.requestId, 0x40, 0x01, [6,6,0,0,0,0,0,0,0,0,0,0], [
+		new Kibble11(1),
+		new Kibble11(this.opt1),
+	]);
+	return response.toBuffer();
+}
+
+// Response with album art
+module.exports.Item4002 = Item4002;
+function Item4002(r, responseBody, aaaa, bbbb, len){
+	if(r instanceof Buffer) var message = parseMessage(r);
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.body = message.args[3].data;
+	}else if(typeof r=='object'){
+		var data = r;
+		for(var n in data) this[n]=data[n];
+	}else{
+		this.requestId = r;
+		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
+		this.responseBody = responseBody;
+		this.itemCount = len;
+	}
+	this.length = 52 + this.body.length;
+}
+Item4002.prototype.toBuffer = function toBuffer(){
+	var response = new Item(this.requestId, 0x40, 0x02, [6,6,6,3,0,0,0,0,0,0,0,0], [
+		new Kibble11(0x2003),
+		new Kibble11(0),
+		new Kibble11(this.body.length),
+		Kibble14.blob(this.body),
 	]);
 	return response.toBuffer();
 }
@@ -688,7 +760,6 @@ module.exports.Item41 = Item41;
 function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	if(requestId instanceof Buffer){
 		var message = parseMessage(requestId);
-		console.log('MESSAGE', message);
 	}else if (requestId instanceof Item){
 		var message = requestId;
 	}
@@ -787,7 +858,7 @@ function handleDBServerConnection(device, socket) {
 		var message = parseMessage(data);
 		console.log('  DBServer type='+((message.a<<8)|(message.b<<0)).toString(16));
 		var r = message.requestId;
-		var type = message.a;
+		var type = (message.a<<8)|(message.b);
 		assertParsed(data, message);
 
 		if(state.initialized===0){
@@ -880,7 +951,7 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x16, "\ufffaHistory\ufffb"),
 				];
 			}
-			var response_prerequest = new Item40(r, 0, type, 0x02, menu.items.length);
+			var response_prerequest = new Item4000(r, 0, type, menu.items.length);
 			sendItems([response_prerequest]);
 			return;
 		}
@@ -932,7 +1003,7 @@ function handleDBServerConnection(device, socket) {
 					new Item41(r, 0x90, 0x37, "Playlist 6"),
 				];
 			}
-			var response_prerequest = new Item40(r, 0, type, 0x05, menu.items.length);
+			var response_prerequest = new Item4000(r, 0, type, menu.items.length);
 			console.log('  navigate to playlist id='+info.playlist.toString(16)+'');
 			sendItems([response_prerequest]);
 			return;
@@ -950,7 +1021,7 @@ function handleDBServerConnection(device, socket) {
 				new Item41(r, 0x8b, 6, "Key"),
 				new Item41(r, 0x92, 7, "Duration"),
 			];
-			var response_prerequest = new Item40(r, 0, type, 0x00, menu.items);
+			var response_prerequest = new Item4000(r, 0, type, menu.items);
 			sendItems([response_prerequest]);
 			return;
 		}
@@ -968,7 +1039,7 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item21){
-			var response_prerequest = new Item40(r, 0, type, 0x06, 0x06);
+			var response_prerequest = new Item4000(r, 0, type, 0x06);
 			console.log('  get track data');
 			sendItems([response_prerequest]);
 			return;
@@ -981,7 +1052,7 @@ function handleDBServerConnection(device, socket) {
 			var menuLabel = menuLabels[affectedMenu] || affectedMenu.toString(16);
 			var response = menu.items.slice(info.offset, info.offset+6);
 			response.forEach(function(v){ v.requestId = info.requestId; });
-			response.unshift(new Item40(r, 0x01, 0x00, 0x01, 0));
+			response.unshift(new Item4000(r, 0x01, 0x00, 0x01, 0));
 			response.push(new Item42(r));
 			console.log('  renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
 			sendItems(response);
