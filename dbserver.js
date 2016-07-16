@@ -916,18 +916,18 @@ function handleDBServerConnection(device, socket) {
 				// List all the tracks!
 				menu.items = [
 					new Item41({
-						numeric2: 0x0d4e,
-						numeric: 0x2a26,
-						symbol2: 0x07,
-						symbol: 0x04,
+						numeric2: 13800,
+						numeric: 0x1778, // BPM number
 						label: 'Title',
 						label2: 'Artist',
-						_x3a: 0x2e,
-						_x48: 0x01,
+						symbol: 0x04, symbol2: 0x07,
+						opt7: 0,
 						albumArtId: 1234,
-						_x55: 0x00,
-						_x59: 0x01,
-						_x5f: 0x0a,
+						opt9: 1,
+						// bit mask seems to control different properties
+						// any value in least sig byte seems to grey out and disable the track
+						opta: 0xff,
+						optb: 7,
 					}),
 					new Item41(r, 0x04, 0x1779, "Exactly", 0x0d, 0x35e8),
 					new Item41(r, 0x04, 0x177a, "Arisen", 0x0d, 0x35e8),
@@ -1021,7 +1021,7 @@ function handleDBServerConnection(device, socket) {
 			sendItems([response_prerequest]);
 			return;
 		}
-		if(info instanceof Item20){
+		if(info instanceof Item2003){
 			console.log('> DBServer album art request');
 			var len0 = (artBlob.length>>8) & 0xff;
 			var len1 = (artBlob.length>>0) & 0xff;
