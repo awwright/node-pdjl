@@ -134,9 +134,11 @@ module.exports.Kibble = {
 	"26": Kibble26,
 };
 var typeLabels = module.exports.typeLabels = {
+	"0001": 'invalid data',
 	"1000": 'load root menu',
 	"2002": 'request track information',
 	"2003": 'request album art',
+	"2102": 'request track data',
 	"3000": 'render menu',
 	"4000": 'response',
 	"4001": 'render menu (header)',
@@ -284,7 +286,7 @@ var mapItem = module.exports.mapItem = {
 	"20": Item20,
 	"2002": Item2002,
 	"2003": Item2003,
-	"21": Item21,
+	"2102": Item2102,
 	"22": Item22,
 	"30": Item30,
 	"31": Item31,
@@ -598,9 +600,9 @@ Item2003.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
-// A request for track metadata(??)
-module.exports.Item21 = Item21;
-function Item21(data){
+// A request for track data
+module.exports.Item2102 = Item2102;
+function Item2102(data){
 	if(data instanceof Buffer){
 		this.length = data.length;
 		this.method = 0x21;
@@ -610,7 +612,7 @@ function Item21(data){
 		for(var n in data) this[n]=data;
 	}
 }
-Item21.prototype.toBuffer = function toBuffer(){
+Item2102.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x21, 0x02, [6,6,0,0,0,0,0,0,0,0,0,0], [
 		new Kibble11(0x03080401),
 		new Kibble11(this.resourceId),
@@ -1051,16 +1053,17 @@ function handleDBServerConnection(device, socket) {
 		if(info instanceof Item2002){
 			var affectedMenu = info.affectedMenu;
 			var menu = state.menus[affectedMenu] = {};
+			// Note that the CDJ won't display all of these
 			menu.items = [
 				new Item41(r, 0x04, 0x1776, "Track Title"),
 				new Item41(r, 0x07, 0x0828, "Artist"),
 				new Item41(r, 0x02, 0x112, "Album"),
-				new Item41(r, 0x0b, 120, ""), //Duration
-				new Item41(r, 0x0d, 12800, ""), // Tempo
-				new Item41(r, 0x23, 0x1778, " "), // ?
+				new Item41(r, 0x0b, 121, ""), //Duration
+				new Item41(r, 0x0d, 13800, ""), // Tempo
+				new Item41(r, 0x23, 0x1778, ""), // ???
 				new Item41(r, 0x0f, 6, "Fm"), // Key field
-				new Item41(r, 0x0a, 0, "1"), // Key field
-				new Item41(r, 0x13, 0, "2"), // Key field
+				new Item41(r, 0x0a, 2, ""), // Rating (n/5 stars)
+				new Item41(r, 0x13, 0, "STRING"), // ?
 			];
 			var response_prerequest = new Item4000(r, type, menu.items.length);
 			sendItems([response_prerequest]);
@@ -1090,8 +1093,8 @@ function handleDBServerConnection(device, socket) {
 			var limit = message.args[2].uint;
 			var menu = state.menus[affectedMenu];
 			var menuLabel = menuLabels[affectedMenu] || affectedMenu.toString(16);
-			var response = menu.items.slice(info.offset, info.offset+6);
-			response.forEach(function(v){ v.requestId = info.requestId; });
+			var response = menu.items.slice(offset, offset+limit);
+			response.forEach(function(v){ v.requestId = message.requestId; });
 			response.unshift(new Item4001(r));
 			response.push(new Item42(r));
 			console.log('  renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
