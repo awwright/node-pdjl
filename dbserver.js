@@ -124,6 +124,7 @@ function assertParsed(data, info){
 var menuLabels = module.exports.menuLabels = {
 	1: 'mainmenu',
 	2: 'submenu',
+	3: 'trackinfo',
 	5: 'sortmenu',
 	8: 'system',
 };
@@ -314,6 +315,7 @@ var mapItem = module.exports.mapItem = {
 	"41": Item41,
 	"42": Item42,
 	"4402": Item4402,
+	"4702": Item4702,
 };
 
 module.exports.parseMessage = parseMessage;
@@ -547,9 +549,9 @@ function Item14(data){
 }
 Item14.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x14, 0x00, [
-		new Item11(0x03000401|(this.affectedMenu<<16)),
-		new Item11(0),
-		new Item11(0x1004),
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11(0),
+		new Kibble11(0x1004),
 	]).toBuffer();
 }
 
@@ -738,17 +740,21 @@ Item30.prototype.toBuffer = function toBuffer(){
 // Sent out after a list is re-sorted
 module.exports.Item31 = Item31;
 function Item31(data){
-	if(data instanceof Buffer){
-		this.length = data.length;
-		this.method = 0x31;
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
+	this.method = 0x31;
+	this.length = data.length;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.affectedMenu = message.args[0].data[1];
 	}else{
 		for(var n in data) this[n]=data;
 	}
+	this.length = data.length;
 }
 Item31.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x31, 0x00, [
-		new Kibble11(0x03010401),
+		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(0x2a26),
 		new Kibble11(0),
 		new Kibble11(0),
@@ -954,6 +960,34 @@ function Item42(data){
 }
 Item42.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x42, 0x01, []).toBuffer();
+}
+
+module.exports.Item4702 = Item4702;
+function Item4702(data){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.method = message.args[0].uint;
+	}else if(typeof data=='object'){
+		this.requestId = data.requestId;
+	}else{
+		this.requestId = data;
+	}
+	this.length = this.toBuffer().length;
+}
+Item4702.prototype.toBuffer = function toBuffer(){
+	return new Item(this.requestId, 0x47, 0x02, [
+		new Kibble11(this.method),
+		new Kibble11(1),
+		new Kibble11(0),
+		new Kibble14(),
+		new Kibble11(0x24),
+		new Kibble11(0),
+		new Kibble11(0),
+		new Kibble11(0),
+		new Kibble14(),
+	]).toBuffer();
 }
 
 function handleDBServerConnection(device, socket) {
