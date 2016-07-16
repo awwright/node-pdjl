@@ -41,6 +41,10 @@ function pushSection(localDirection){
 //		}catch(e){
 //			console.log(e.toString());
 //		}
+		// Parse message contents
+		if(item instanceof DBServer.Item){
+			var info = DBServer.parseItem(item, item.original);
+		}
 	}
 	sectionList.push(currentSection);
 	console.log('\n');

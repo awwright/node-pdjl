@@ -201,6 +201,8 @@ function Kibble11(data){
 		this.data = new Buffer(4);
 		this.data.writeUInt32BE(data, 0);
 		this.uint = data;
+	}else{
+		throw new Error('No initial value');
 	}
 }
 Kibble11.requestId = function(r){
@@ -240,14 +242,21 @@ Kibble14.blob = function(b){
 
 // A variable-length UTC-16BE string
 function Kibble26(data){
+	this.type = 0x26;
+	this.length = 7;
 	if(data instanceof Buffer){
-		this.type = 0x26;
 		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
 		var size = data.readUInt32BE(1) - 1;
 		this.string = ""; // don't include trailing null
 		for(var i=0; i<size; i++) this.string += String.fromCharCode(data.readUInt16BE(5 + i*2));
 		this.length = 5 + size*2 + 2;
+	}else{
+		this.string = "";
 	}
+}
+Kibble26.prototype.setData = function setData(str){
+	this.string = str;
+	this.length = 5 + this.string.length*2 + 2;
 }
 Kibble26.prototype.toBuffer = function toBuffer(){
 	var buf = new Buffer(5 + this.string.length*2 + 2);
@@ -257,11 +266,16 @@ Kibble26.prototype.toBuffer = function toBuffer(){
 	for(var i=0; i<this.string.length; i++) buf.writeUInt16BE(this.string.charCodeAt(i)||0, 5 + i*2);
 	return buf;
 }
+Kibble26.string = function(b){
+	var k = new Kibble26();
+	k.setData(b);
+	return k;
+}
 
 
 // Higher level parsing functions
 
-module.exports.Item = {
+module.exports.mapItem = {
 	"10": Item10,
 	"11": Item11,
 	"14": Item14,
@@ -333,11 +347,14 @@ function parseMessage(data){
 
 module.exports.parseItem = parseItem;
 function parseItem(message, data){
-	var ItemStruct = module.exports.Item[message.a.toString(16)];
+	var ItemStruct = module.exports.mapItem[message.a.toString(16)];
 	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
-	return new ItemStruct(data);
+	var item = new ItemStruct(data);
+	assertParsed(data, item);
+	return item;
 }
 
+module.exports.Item = Item;
 function Item(r, a, b, meta, kibbles){
 	this.requestId = r;
 	this.a = a;
