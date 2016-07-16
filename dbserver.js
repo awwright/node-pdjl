@@ -703,10 +703,10 @@ Item4000.prototype.toBuffer = function toBuffer(){
 
 // Response with attached menu items packet
 module.exports.Item4001 = Item4001;
-function Item4001(r, responseBody, aaaa, len){
+function Item4001(r, aaaa){
 	this.length = 0x2a;
 	if(r instanceof Buffer) var message = parseMessage(r);
-	else if (requestId instanceof Item) var message = requestId;
+	else if (r instanceof Item) var message = requestId;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.opt1 = message.args[1].uint;
@@ -715,9 +715,7 @@ function Item4001(r, responseBody, aaaa, len){
 		for(var n in data) this[n]=data[n];
 	}else{
 		this.requestId = r;
-		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
-		this.responseBody = responseBody;
-		this.opt1 = aaaa;
+		this.opt1 = 0;
 	}
 }
 Item4001.prototype.toBuffer = function toBuffer(){
@@ -740,8 +738,6 @@ function Item4002(r, responseBody, aaaa, bbbb, len){
 		for(var n in data) this[n]=data[n];
 	}else{
 		this.requestId = r;
-		// responseBody seems to indicate if there will be additional 41 messages and a trailing 42 message
-		this.responseBody = responseBody;
 		this.itemCount = len;
 	}
 	this.length = 52 + this.body.length;
@@ -1052,7 +1048,7 @@ function handleDBServerConnection(device, socket) {
 			var menuLabel = menuLabels[affectedMenu] || affectedMenu.toString(16);
 			var response = menu.items.slice(info.offset, info.offset+6);
 			response.forEach(function(v){ v.requestId = info.requestId; });
-			response.unshift(new Item4000(r, 0x01, 0x00, 0x01, 0));
+			response.unshift(new Item4001(r));
 			response.push(new Item42(r));
 			console.log('  renderMenu menu='+menuLabel+' offset='+info.offset.toString(16));
 			sendItems(response);
