@@ -195,6 +195,7 @@ Kibble10.prototype.toBuffer = function toBuffer(){
 
 // A 32-bit number or blob
 function Kibble11(data){
+	this.meta = 0x06;
 	this.type = 0x11;
 	this.length = 5;
 	if(data instanceof Buffer){
@@ -221,6 +222,7 @@ Kibble11.prototype.toBuffer = function toBuffer(){
 
 // A variable-length blob
 function Kibble14(data){
+	this.meta = 0x03;
 	this.type = 0x14;
 	this.length = 5;
 	if(data instanceof Buffer){
@@ -246,6 +248,7 @@ Kibble14.blob = function(b){
 
 // A variable-length UTC-16BE string
 function Kibble26(data){
+	this.meta = 0x02;
 	this.type = 0x26;
 	this.length = 7;
 	if(data instanceof Buffer){
@@ -363,19 +366,25 @@ function parseItem(message, data){
 }
 
 module.exports.Item = Item;
-function Item(r, a, b, meta, kibbles){
+function Item(r, a, b, kibbles){
 	this.requestId = r;
 	this.a = a;
 	this.b = b;
-	this.meta = meta;
 	this.args = kibbles;
 }
 Item.prototype.toBuffer = function toBuffer(){
+	if(!this.meta){
+		var meta = new Buffer(0x0c);
+		meta.fill(0);
+		this.args.forEach(function(v, i){
+			meta[i] = v.meta;
+		})
+	}
 	var k = [
 		new Kibble11(0x872349ae),
 		Kibble11.requestId(this.requestId),
 		new Kibble10({a:this.a, b:this.b, d:this.d||this.args.length}),
-		Kibble14.blob(new Buffer(this.meta)),
+		Kibble14.blob(meta),
 	].concat(this.args);
 	return Buffer.concat(k.map(function(v){ return v.toBuffer(); }));
 }
@@ -463,7 +472,7 @@ function Item10(data){
 	}
 }
 Item10.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x10, this.listing, [6,6,this.submenuItems,0,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x10, this.listing, [
 		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
 		new Kibble11(this.sortOrder),
 	]);
@@ -487,8 +496,6 @@ function Item11(data){
 		this.length = 0x34;
 		this.method = 0x11;
 		this.requestId = (data[0x08]<<8) | (data[0x09]);
-		this.m2 = data[0x16];
-		this.m3 = data[0x17];
 		this.affectedMenu = data[0x22];
 		this.playlist = (data[0x2d]<<8) | data[0x2e];
 		this._x33 = data[0x33];
@@ -497,7 +504,7 @@ function Item11(data){
 	}
 }
 Item11.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x11, 0x05, [6,6,this.m2,this.m3,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x11, 0x05, [
 		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
 		new Kibble11(0),
 		new Kibble11(this.playlist),
@@ -521,7 +528,7 @@ function Item14(data){
 	}
 }
 Item14.prototype.toBuffer = function toBuffer(){
-	return new Item(this.requestId, 0x14, 0x00, [6,6,6,0,0,0,0,0,0,0,0,0], [
+	return new Item(this.requestId, 0x14, 0x00, [
 		new Item11(0x03000401|(this.affectedMenu<<16)),
 		new Item11(0),
 		new Item11(0x1004),
@@ -546,7 +553,7 @@ function Item20(data){
 	}
 }
 Item20.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x20, this.listing, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x20, this.listing, [
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(this.resourceId),
 		new Kibble11(1),
@@ -570,7 +577,7 @@ function Item2002(data){
 	this.length = 0x20 + 5 + 5;
 }
 Item2002.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x20, 0x02, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x20, 0x02, [
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(this.resourceId),
 	]);
@@ -593,7 +600,7 @@ function Item2003(data){
 	}
 }
 Item2003.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x20, 0x03, [6,6,this.m2,0,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x20, 0x03, [
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(this.resourceId),
 	]);
@@ -613,7 +620,7 @@ function Item2102(data){
 	}
 }
 Item2102.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x21, 0x02, [6,6,0,0,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x21, 0x02, [
 		new Kibble11(0x03080401),
 		new Kibble11(this.resourceId),
 	]);
@@ -647,7 +654,7 @@ function Item30(data){
 	}
 }
 Item30.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x30, 0x00, [6,6,this._x16,this._x17,6,6,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x30, 0x00, [
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
 		new Kibble11(this.offset),
 		new Kibble11(this.limit),
@@ -672,7 +679,7 @@ function Item31(data){
 	}
 }
 Item31.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x31, 0x00, [6,6,6,6,0,0,0,0,0,0,0,0], [
+	var b = new Item(this.requestId, 0x31, 0x00, [
 		new Kibble11(0x03010401),
 		new Kibble11(0x2a26),
 		new Kibble11(0),
@@ -720,7 +727,7 @@ function Item4000(r, aaaa, len){
 	}
 }
 Item4000.prototype.toBuffer = function toBuffer(){
-	var response = new Item(this.requestId, 0x40, 0x00, [6,6,0,0,0,0,0,0,0,0,0,0], [
+	var response = new Item(this.requestId, 0x40, 0x00, [
 		new Kibble11(this.requestType),
 		new Kibble11(this.itemCount),
 	]);
@@ -745,7 +752,7 @@ function Item4001(r, aaaa){
 	}
 }
 Item4001.prototype.toBuffer = function toBuffer(){
-	var response = new Item(this.requestId, 0x40, 0x01, [6,6,0,0,0,0,0,0,0,0,0,0], [
+	var response = new Item(this.requestId, 0x40, 0x01, [
 		new Kibble11(1),
 		new Kibble11(this.opt1),
 	]);
@@ -769,7 +776,7 @@ function Item4002(r, responseBody, aaaa, bbbb, len){
 	this.length = 52 + this.body.length;
 }
 Item4002.prototype.toBuffer = function toBuffer(){
-	var response = new Item(this.requestId, 0x40, 0x02, [6,6,6,3,0,0,0,0,0,0,0,0], [
+	var response = new Item(this.requestId, 0x40, 0x02, [
 		new Kibble11(0x2003),
 		new Kibble11(0),
 		new Kibble11(this.body.length),
@@ -824,7 +831,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	}
 }
 Item41.prototype.toBuffer = function toBuffer(){
-	var b = new Item(this.requestId, 0x41, 0x01, [6,6,6,2,6,2,6,6,6,6,6,6], [
+	var b = new Item(this.requestId, 0x41, 0x01, [
 		new Kibble11((this._x22<<16) | this.numeric2),
 		new Kibble11(this.numeric),
 		new Kibble11(this.label.length*2 + 2),
@@ -854,7 +861,7 @@ function Item42(data){
 	}
 }
 Item42.prototype.toBuffer = function toBuffer(){
-	return new Item(this.requestId, 0x42, 0x01, [0,0,0,0,0,0,0,0,0,0,0,0], []).toBuffer();
+	return new Item(this.requestId, 0x42, 0x01, []).toBuffer();
 }
 
 function handleDBServerConnection(device, socket) {
@@ -1070,9 +1077,8 @@ function handleDBServerConnection(device, socket) {
 			return;
 		}
 		if(info instanceof Item2003){
-			console.log('> DBServer album art request');
 			var len1 = (artBlob.length>>0) & 0xff;
-			var response = new Item(r, 0x40, 0, [6,6,6,3,0,0,0,0,0,0,0,0], [
+			var response = new Item(r, 0x40, 0, [
 				new Kibble11(0x2003),
 				new Kibble11(0),
 				new Kibble11(artBlob.length),
