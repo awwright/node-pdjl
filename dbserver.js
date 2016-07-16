@@ -80,6 +80,7 @@ function formatBuf(b){
 		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
 		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
 		// Menu item
+		if(itemType==0x4000 && kibble==5) x += '  (menu item count)';
 		if(itemType==0x4101 && kibble==4) x += '  (numeric2 field)';
 		if(itemType==0x4101 && kibble==5) x += '  (numeric1 field)';
 		if(itemType==0x4101 && kibble==6) x += '  (byte size field)';
@@ -1051,14 +1052,15 @@ function handleDBServerConnection(device, socket) {
 			var affectedMenu = info.affectedMenu;
 			var menu = state.menus[affectedMenu] = {};
 			menu.items = [
-				new Item41(r, 0xa1, 0, "Default"),
-				new Item41(r, 0xa2, 1, "Alphabet"),
-				new Item41(r, 0x81, 2, "Artist"),
-				new Item41(r, 0x82, 3, "Album"),
-				new Item41(r, 0x85, 4, "Tempo"),
-				new Item41(r, 0x86, 5, "Rating"),
-				new Item41(r, 0x8b, 6, "Key"),
-				new Item41(r, 0x92, 7, "Duration"),
+				new Item41(r, 0x04, 0x1776, "Track Title"),
+				new Item41(r, 0x07, 0x0828, "Artist"),
+				new Item41(r, 0x02, 0x112, "Album"),
+				new Item41(r, 0x0b, 120, ""), //Duration
+				new Item41(r, 0x0d, 12800, ""), // Tempo
+				new Item41(r, 0x23, 0x1778, " "), // ?
+				new Item41(r, 0x0f, 6, "Fm"), // Key field
+				new Item41(r, 0x0a, 0, "1"), // Key field
+				new Item41(r, 0x13, 0, "2"), // Key field
 			];
 			var response_prerequest = new Item4000(r, type, menu.items.length);
 			sendItems([response_prerequest]);
