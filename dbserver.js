@@ -438,9 +438,6 @@ function Item10(data){
 	}
 }
 Item10.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x0c = this.listing;
 	var b = new Item(this.requestId, 0x10, this.listing, [6,6,this.submenuItems,0,0,0,0,0,0,0,0,0], [
 		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
 		new Kibble11(this.sortOrder),
@@ -738,52 +735,23 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 	}
 }
 Item41.prototype.toBuffer = function toBuffer(){
-	var iiii = this.iiii || 0;
-	// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
-
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	var _x22 = this._x22;
-	var _x23 = (this.numeric2>>8) & 0xff;
-	var _x24 = (this.numeric2>>0) & 0xff;
-	var _x28 = (this.numeric>>8) & 0xff;
-	var _x29 = (this.numeric>>0) & 0xff;
-	var size = this.label.length*2 + 2;
-	var _x2d = (size<<8) & 0xff;
-	var _x2e = (size<<0) & 0xff;
-	var _x3a = this._x3a;
-	var _x45 = this.symbol2 || 0; // Icon for second column
-	var _x46 = this.symbol;
-	var _x48 = this._x48;
-	var _x4f = (this.albumArtId>>8) & 0xff;
-	var _x50 = (this.albumArtId>>0) & 0xff;
-	var _x55 = this._x55;
-	var _x59 = this._x59;
-	var _x5f = this._x5f;
-	var len0 = (this.label.length+1) >> 8;
-	var len1 = (this.label.length+1) & 0xff;
-	var lem0 = (this.label2.length+1) >> 8;
-	var lem1 = (this.label2.length+1) & 0xff;
-	var buf = new Buffer(0x60 + this.label.length*2 + this.label2.length*2);
-	buf.fill();
-	var tpl = new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x41, 0x01, 0x0f, 0x0c, 0x14,
-		0x00, 0x00, 0x00, 0x0c, 0x06, 0x06, 0x06, 0x02,  0x06, 0x02, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-		0x11, 0x00, _x22, _x23, _x24, 0x11, 0x00, 0x00,  _x28, _x29, 0x11, 0x00, 0x00, _x2d, _x2e, 0x26,
-		0x00, 0x00, len0, len1, 0x00, 0x00, 0x11, 0x00,  0x00, 0x00, _x3a, 0x26, 0x00, 0x00, lem0, lem1,
-		0x00, 0x00, 0x11, 0x00, 0x00, _x45, _x46, 0x11,  _x48, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, _x4f,
-		_x50, 0x11, 0x00, 0x00, 0x00, _x55, 0x11, 0x00,  0x00, _x59, 0x00, 0x11, 0x00, 0x00, 0x00, _x5f,
+	var b = new Item(this.requestId, 0x41, 0x01, [6,6,6,2,6,2,6,6,6,6,6,6], [
+		new Kibble11((this._x22<<16) | this.numeric2),
+		new Kibble11(this.numeric),
+		new Kibble11(this.label.length*2 + 2),
+		new Kibble26(this.label),
+		new Kibble11(this._x3a),
+		new Kibble11(this.label2.length*2 + 2),
+		new Kibble26(this.label2),
+		// A table of possible values is found in <table.txt> section "DBSERVER ICON TABLE"
+		new Kibble11((this.symbol2<<8)|(this.symbol)),
+		new Kibble11((this._x48<<24)),
+		new Kibble11(this.albumArtId),
+		new Kibble11(this._x55),
+		new Kibble11(this._x59<<8),
+		new Kibble11(this._x5f),
 	]);
-	// Write up to first string
-	tpl.copy(buf, 0, 0, 0x34);
-	for(var i=0; i<this.label.length; i++) buf.writeUInt16BE(this.label.charCodeAt(i)||0, 0x34+i*2);
-	// Write up to second string
-	var start = 0x34+this.label.length*2;
-	tpl.copy(buf, start, 0x34, 0x40);
-	for(var i=0; i<this.label2.length; i++) buf.writeUInt16BE(this.label2.charCodeAt(i)||0, start+i*2+0xc);
-	// Write to end
-	tpl.copy(buf, start+0xc+this.label2.length*2, 0x40, 0x60);
-	return buf;
+	return b.toBuffer();
 }
 
 module.exports.Item42 = Item42;
