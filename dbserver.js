@@ -145,6 +145,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2004": 'FIXME request track something or other',
 	"2102": 'request track data',
 	"2104": 'request more track data',
+	"2504": 'request more track data 2',
 	"3000": 'render menu',
 	"4000": 'response',
 	"4001": 'render menu (header)',
@@ -152,6 +153,7 @@ var typeLabels = module.exports.typeLabels = {
 	"4101": 'render menu (menu item)',
 	"4201": 'render menu (footer)',
 	"4402": 'track waveform data response',
+	"4502": 'track data of some sort response',
 	"4702": 'FIXME no clue',
 };
 
@@ -306,7 +308,9 @@ var mapItem = module.exports.mapItem = {
 	"2004": Item2004,
 	"2102": Item2102,
 	"2104": Item2104,
-	"22": Item22,
+	"2204": Item2204,
+	"2504": Item2504,
+	"2904": Item2904,
 	"30": Item30,
 	"31": Item31,
 	"4000": Item4000,
@@ -315,7 +319,10 @@ var mapItem = module.exports.mapItem = {
 	"41": Item41,
 	"42": Item42,
 	"4402": Item4402,
+	"4502": Item4502,
+	"4602": Item4602,
 	"4702": Item4702,
+	"4a02": Item4a02,
 };
 
 module.exports.parseMessage = parseMessage;
@@ -697,12 +704,73 @@ Item2104.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
-
-module.exports.Item22 = Item22;
-function Item22(data){
-	
+// Seems to respond with 0x4602
+module.exports.Item2204 = Item2204;
+function Item2204(data){
+	this.method = 0x20;
+	this.length = 0x20 + 5 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.resourceId = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data;
+	}
 }
-Item22.prototype.toBuffer = function toBuffer(){
+Item2204.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x22, 0x04, [
+		new Kibble11(0x03080401),
+		new Kibble11(this.resourceId),
+	]);
+	return b.toBuffer();
+}
+
+// A request for more track data
+// Server responds with Item4502
+module.exports.Item2504 = Item2504;
+function Item2504(data){
+	this.method = 0x25;
+	this.length = 0x20 + 5 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.resourceId = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item2504.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x25, 0x04, [
+		new Kibble11(0x03080401),
+		new Kibble11(this.resourceId),
+	]);
+	return b.toBuffer();
+}
+
+// A request for more track data 3
+// Server responds with Item4a02
+module.exports.Item2904 = Item2904;
+function Item2904(data){
+	this.method = 0x25;
+	this.length = 0x20 + 5*3;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.resourceId = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data;
+	}
+}
+Item2904.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x29, 0x04, [
+		new Kibble11(0x03010401),
+		new Kibble11(this.resourceId),
+		new Kibble11(0),
+	]);
+	return b.toBuffer();
 }
 
 // This is sent to request that a particular menu be rendered out to the client
@@ -947,6 +1015,32 @@ Item4402.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
+// Seems to be a blob of something?
+// Mostly zeros
+module.exports.Item4502 = Item4502;
+function Item4502(requestId){
+	if(requestId instanceof Buffer) var message = parseMessage(requestId);
+	else if (requestId instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.length = message.length;
+		this.method = message.args[0].uint;
+		this.body = message.args[3].data;
+	}else if(typeof requestId=='object'){
+		var data = requestId;
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item4502.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x45, 0x02, [
+		new Kibble11(0x2504), // in response to type=0x2504
+		new Kibble11(0),
+		new Kibble11(this.body.length),
+		Kibble14.blob(this.body),
+	]);
+	return b.toBuffer();
+}
+
 module.exports.Item42 = Item42;
 function Item42(data){
 	this.length = 0x20;
@@ -960,6 +1054,32 @@ function Item42(data){
 }
 Item42.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x42, 0x01, []).toBuffer();
+}
+
+// Sent in response to 0x2204
+module.exports.Item4602 = Item4602;
+function Item4602(requestId){
+	if(requestId instanceof Buffer) var message = parseMessage(requestId);
+	else if (requestId instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.length = message.length;
+		this.method = message.args[0].uint;
+		this.body = message.args[3].data;
+	}else if(typeof requestId=='object'){
+		var data = requestId;
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item4602.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x46, 0x02, [
+		new Kibble11(0x2204), // in response to type=0x2204
+		new Kibble11(0),
+		new Kibble11(this.body.length),
+		Kibble14.blob(this.body),
+		new Kibble11(0),
+	]);
+	return b.toBuffer();
 }
 
 module.exports.Item4702 = Item4702;
@@ -988,6 +1108,31 @@ Item4702.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0),
 		new Kibble14(),
 	]).toBuffer();
+}
+
+// Sent in response to 0x2904
+module.exports.Item4a02 = Item4a02;
+function Item4a02(requestId){
+	if(requestId instanceof Buffer) var message = parseMessage(requestId);
+	else if (requestId instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.length = message.length;
+		this.method = message.args[0].uint;
+		this.body = message.args[3].data;
+	}else if(typeof requestId=='object'){
+		var data = requestId;
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item4a02.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x4a, 0x02, [
+		new Kibble11(0x2904), // in response to type=0x2204
+		new Kibble11(0),
+		new Kibble11(this.body.length),
+		Kibble14.blob(this.body),
+	]);
+	return b.toBuffer();
 }
 
 function handleDBServerConnection(device, socket) {
