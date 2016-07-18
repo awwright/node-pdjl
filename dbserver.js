@@ -27,6 +27,7 @@ function formatBufBytes(b){
 function formatBuf(b){
 	var x = "";
 	var kibble = 0; // A segment (one of the ones usually starting with 0x11 ) within this packet
+	var argi = 0; // A segment (one of the ones usually starting with 0x11 ) within this packet
 	var itemType = null;
 	var itemType0 = null;
 	var itemType1 = null;
@@ -95,11 +96,22 @@ function formatBuf(b){
 		// Album art image
 		if(itemType==0x4002 && kibble==6) x += '  (attachment size)';
 		if(itemType==0x4002 && kibble==7) x += '  (attachment bytestring)';
+		// 0x4702
+		if(itemType==0x4702 && argi==0) x += '  (request type)';
+		//if(itemType==0x4702 && argi==1) x += '  ()';
+		if(itemType==0x4702 && argi==2) x += '  (attachment size)';
+		if(itemType==0x4702 && argi==3) x += '  (attachment bytestring)';
+		//if(itemType==0x4702 && argi==4) x += '  (0x24)';
+		//if(itemType==0x4702 && argi==5) x += '  (attachment size)';
+		//if(itemType==0x4702 && argi==6) x += '  (attachment size)';
+		if(itemType==0x4702 && argi==7) x += '  (attachment size)';
+		if(itemType==0x4702 && argi==8) x += '  (attachment bytestring)';
 		x+="\n";
 		if(attachment){
 			x += formatBufBytes(attachment).replace(/^/gm, "    ") + "\n";
 		}
 		kibble++;
+		if(kibble>4) argi++;
 	}
 	return x;
 }
@@ -145,6 +157,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2004": 'FIXME request track something or other',
 	"2102": 'request track data',
 	"2104": 'request more track data',
+	"2204": 'request beat grid information',
 	"2504": 'request more track data 2',
 	"3000": 'render menu',
 	"4000": 'response',
@@ -154,6 +167,7 @@ var typeLabels = module.exports.typeLabels = {
 	"4201": 'render menu (footer)',
 	"4402": 'track waveform data response',
 	"4502": 'track data of some sort response',
+	"4602": 'beat grid information',
 	"4702": 'FIXME no clue',
 };
 
@@ -669,6 +683,7 @@ function Item2102(data){
 	else if (data instanceof Item) var message = requestId;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
@@ -815,6 +830,7 @@ function Item31(data){
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.affectedMenu = message.args[0].data[1];
+		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
 	}
@@ -823,7 +839,7 @@ function Item31(data){
 Item31.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x31, 0x00, [
 		new Kibble11(0x03000401|(this.affectedMenu<<16)),
-		new Kibble11(0x2a26),
+		new Kibble11(this.resourceId),
 		new Kibble11(0),
 		new Kibble11(0),
 	]);
@@ -1089,24 +1105,30 @@ function Item4702(data){
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.method = message.args[0].uint;
+		this.arg1 = message.args[1].uint;
+		this.body3 = message.args[3].data;
+		this.arg5 = message.args[5].uint;
+		this.arg6 = message.args[6].uint;
+		this.body8 = message.args[8].data;
 	}else if(typeof data=='object'){
 		this.requestId = data.requestId;
 	}else{
 		this.requestId = data;
+		this.method = 0x2104;
 	}
 	this.length = this.toBuffer().length;
 }
 Item4702.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x47, 0x02, [
 		new Kibble11(this.method),
-		new Kibble11(1),
-		new Kibble11(0),
-		new Kibble14(),
+		new Kibble11(this.arg1),
+		new Kibble11(this.body3.length),
+		Kibble14.blob(this.body3),
 		new Kibble11(0x24),
-		new Kibble11(0),
-		new Kibble11(0),
-		new Kibble11(0),
-		new Kibble14(),
+		new Kibble11(this.arg5),
+		new Kibble11(this.arg6),
+		new Kibble11(this.body8.length),
+		Kibble14.blob(this.body8),
 	]).toBuffer();
 }
 
@@ -1383,6 +1405,11 @@ function handleDBServerConnection(device, socket) {
 			sendItems([response_prerequest]);
 			return;
 		}
+		if(info instanceof Item2104){
+			var response_prerequest = new Item4702(r);
+			sendItems([response_prerequest]);
+			return;
+		}
 		if(message.a==0x30){
 			var affectedMenu = message.args[0].data[1];
 			var offset = message.args[1].uint;
@@ -1420,7 +1447,7 @@ function handleDBServerConnection(device, socket) {
 			socket.write(response);
 			return;
 		}
-		throw new Error('Unknown incoming data/request '+message.a.toString(16));
+		throw new Error('Unknown incoming data/request '+(message.a<<8 | message.b).toString(16));
 	});
 	socket.on('end', function() {
 		console.log('DBServer: Connection closed');

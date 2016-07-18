@@ -4,24 +4,24 @@ DBSERVER ICON TABLE
 -------------------
 00 = nothing
 01 = folder
-02 = disc (album title)
+02 = album title (disc icon)
 03 = disc (same as above?)
-04 = music note (track title)
+04 = track title (music note icon)
 05 = music note (same as above?)
-06 = disc in folder
-07 = person
+06 = genre (disc in folder icon)
+07 = track artist (person icon)
 08 = stack of something
 09 = stack of something
 0a = 1/5 stars (numeric)
-0b = duration (numeric)
+0b = duration in seconds (numeric)
 0c = Eighth note with "C" (string)
-0d = BPM (numeric)
+0d = tempo in centi-BPM
 0e = disc inside sleeve?
-0f = key: sharp/flat icon (string)
+0f = key: sharp/flat icon (string and numeric, 0= 1= 7=Gm)
 10 = bps (numeric)
 11 = pie and calendar (numeric)
 12 = file (string)
-13 = circle
+13 = circle... track color?
 14 = magenta circle
 15 = red circle
 16 = orange circle
@@ -35,7 +35,7 @@ DBSERVER ICON TABLE
 1e =
 1f =
 20 = circle
-23 = speech bubble
+23 = track comment (speech bubble)
 24 = stack of stuff
 28 = person with star head
 30 = eighth note with "H"
