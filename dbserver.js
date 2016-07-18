@@ -607,7 +607,7 @@ module.exports.Item2002 = Item2002;
 function Item2002(data){
 	this.method = 0x20;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.affectedMenu = message.args[0].data[1];
@@ -631,7 +631,7 @@ function Item2003(data){
 	this.length = data.length;
 	this.method = 0x20;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.affectedMenu = message.args[0].data[1];
@@ -654,7 +654,7 @@ function Item2004(data){
 	this.length = data.length;
 	this.method = 0x20;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.affectedMenu = message.args[0].data[1];
@@ -680,7 +680,7 @@ function Item2102(data){
 	this.method = 0x20;
 	this.length = 0x20 + 5 + 5;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.affectedMenu = message.args[0].data[1];
@@ -703,7 +703,7 @@ function Item2104(data){
 	this.method = 0x20;
 	this.length = 0x20 + 5 + 5;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.resourceId = message.args[1].uint;
@@ -725,7 +725,7 @@ function Item2204(data){
 	this.method = 0x20;
 	this.length = 0x20 + 5 + 5;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.resourceId = message.args[1].uint;
@@ -748,7 +748,7 @@ function Item2504(data){
 	this.method = 0x25;
 	this.length = 0x20 + 5 + 5;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.resourceId = message.args[1].uint;
@@ -771,7 +771,7 @@ function Item2904(data){
 	this.method = 0x25;
 	this.length = 0x20 + 5*3;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.resourceId = message.args[1].uint;
@@ -791,17 +791,17 @@ Item2904.prototype.toBuffer = function toBuffer(){
 // This is sent to request that a particular menu be rendered out to the client
 module.exports.Item30 = Item30;
 function Item30(data){
-	if(data instanceof Buffer){
+	this.method = 0x30;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
 		this.length = data.length;
-		this.method = 0x30;
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
-		this._x16 = data[0x16];
-		this._x17 = data[0x17];
-		this.affectedMenu = data[0x22];
-		this.offset = (data[0x28]<<8) + (data[0x29]<<0);
-		this.limit = data[0x2e];
-		this.len_a = (data[0x37]<<8) + (data[0x38]<<0); // This always seems to match the length provided in the earlier navigate request
-		this._x3d = data[0x3d];
+		this.requestId = message.requestId;
+		this.affectedMenu = message.args[0].data[1];
+		this.offset = message.args[1].uint;
+		this.limit = message.args[2].uint;
+		this.len_a = message.args[4].uint; // This always seems to match the length provided in the earlier navigate request
+		this.opt5 = message.args[5].uint;
 	}else{
 		for(var n in data) this[n]=data;
 	}
@@ -813,7 +813,7 @@ Item30.prototype.toBuffer = function toBuffer(){
 		new Kibble11(this.limit),
 		new Kibble11(0),
 		new Kibble11(this.len_a),
-		new Kibble11(this._x3d),
+		new Kibble11(this.opt5),
 	]);
 	return b.toBuffer();
 }
