@@ -610,6 +610,7 @@ function Item2002(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
@@ -619,7 +620,7 @@ function Item2002(data){
 }
 Item2002.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, 0x02, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -634,6 +635,7 @@ function Item2003(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
@@ -642,7 +644,7 @@ function Item2003(data){
 }
 Item2003.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, 0x03, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -657,6 +659,7 @@ function Item2004(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[2].uint;
 	}else{
@@ -665,7 +668,7 @@ function Item2004(data){
 }
 Item2004.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, 0x04, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(4),
 		new Kibble11(this.resourceId),
 		new Kibble11(0),
@@ -683,6 +686,7 @@ function Item2102(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
@@ -691,7 +695,7 @@ function Item2102(data){
 }
 Item2102.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x21, 0x02, [
-		new Kibble11(0x03080401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -706,6 +710,8 @@ function Item2104(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
@@ -735,7 +741,7 @@ function Item2204(data){
 }
 Item2204.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x22, 0x04, [
-		new Kibble11(0x03080401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -751,6 +757,8 @@ function Item2504(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
@@ -758,7 +766,7 @@ function Item2504(data){
 }
 Item2504.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x25, 0x04, [
-		new Kibble11(0x03080401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -774,6 +782,8 @@ function Item2904(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data;
@@ -797,6 +807,7 @@ function Item30(data){
 	if(message instanceof Item){
 		this.length = data.length;
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.offset = message.args[1].uint;
 		this.limit = message.args[2].uint;
@@ -808,7 +819,7 @@ function Item30(data){
 }
 Item30.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x30, 0x00, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.offset),
 		new Kibble11(this.limit),
 		new Kibble11(0),
@@ -829,6 +840,7 @@ function Item31(data){
 	else if (data instanceof Item) var message = requestId;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
@@ -838,7 +850,7 @@ function Item31(data){
 }
 Item31.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x31, 0x00, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
 		new Kibble11(0),
 		new Kibble11(0),
