@@ -157,6 +157,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2004": 'FIXME request track something or other',
 	"2102": 'request track data',
 	"2104": 'request more track data',
+	"2202": 'request CD track data',
 	"2204": 'request beat grid information',
 	"2504": 'request more track data 2',
 	"3000": 'render menu',
@@ -322,6 +323,7 @@ var mapItem = module.exports.mapItem = {
 	"2004": Item2004,
 	"2102": Item2102,
 	"2104": Item2104,
+	"2202": Item2202,
 	"2204": Item2204,
 	"2504": Item2504,
 	"2904": Item2904,
@@ -715,13 +717,36 @@ function Item2104(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2104.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x21, 0x04, [
-		new Kibble11(0x03080401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
 		new Kibble11(this.resourceId),
+	]);
+	return b.toBuffer();
+}
+
+// Request for CD track info, it seems
+module.exports.Item2202 = Item2202;
+function Item2202(data){
+	this.method = 0x20;
+	this.length = 0x20 + 5 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.trackNumber = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item2202.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x22, 0x02, [
+		new Kibble11((this.clientChannel<<24)|0x010105),
+		new Kibble11(this.trackNumber),
 	]);
 	return b.toBuffer();
 }
@@ -785,8 +810,6 @@ function Item2904(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
-		this.clientChannel = message.args[0].data[0];
-		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
