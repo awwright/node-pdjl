@@ -43,19 +43,9 @@ smpteData._read = function(){
 //	];
 };
 
-
-// the frequency to play
-var freq = parseFloat(process.argv[2], 10) || 440.0; // Concert A, default tone
-
-// seconds worth of audio data to generate before emitting "end"
-var duration = parseFloat(process.argv[3], 10) || 2.0;
-
-console.log('generating a %dhz sine wave for %d seconds', freq, duration);
-
-// A SineWaveGenerator readable stream
 var smpteEncode = new Readable();
 smpteEncode.bitDepth = 16;
-smpteEncode.channels = 1;
+smpteEncode.channels = 2;
 smpteEncode.sampleRate = 44100;
 smpteEncode.samplesGenerated = 0;
 smpteEncode.lastValue = 0;
@@ -133,42 +123,42 @@ function generateFrame(fr){
 }
 
 function read (n) {
-	var manchesterFrame = null;
-	var manchester = null;
-
+	var stream = this;
+	var channels = {
+		0: {getFrame: function(samples){ return samples/stream.sampleRate*25;  }},
+		1: {getFrame: function(samples){ return samples/stream.sampleRate*25/2;  }}, // this one is playing at half speed
+	};
 	var sampleSize = this.bitDepth / 8;
-	var blockSize = sampleSize * this.channels;
+	var blockSize = sampleSize * stream.channels;
 	var numSamples = n / blockSize | 0;
 	var audio = new Buffer(numSamples * blockSize);
 	var amplitude = 32760; // Max amplitude for 16-bit audio
 
 	for (var i = 0; i < numSamples; i++) {
-		var freq = 25;
-		var s = this.samplesGenerated + i;
-		var frno = s/this.sampleRate*freq |0;
-		var bit = (s/this.sampleRate*freq*160 |0) % 160;
-		if(manchesterFrame!==frno){
-			var manchester = toManchester(generateFrame(frno), 0);
-			//console.log(('    '+frno).substr(-5) + ' ' + asBinary(manchester));
-			var manchesterFrame = frno;
-		}
-		var value = getBit(manchester, bit);
-		// fill with a simple sine wave at max amplitude
-		var val = Math.round( (amplitude*(value ? -0.7 : +0.7)) + this.lastValue*0.2 );
-		this.lastValue = val;
-		for (var channel = 0; channel < this.channels; channel++) {
-			var offset = (i * sampleSize * this.channels) + (channel * sampleSize);
-			audio['writeInt' + this.bitDepth + 'LE'](val, offset);
+		var s = stream.samplesGenerated + i;
+		for (var chanId = 0; chanId<stream.channels; chanId++) {
+			var channel = channels[chanId];
+			var frfloat = channel.getFrame(s);
+			var frno = frfloat |0;
+			var bit = (frfloat*160 |0) % 160;
+			if(channel.currentFrame!==frno){
+				channel.data = toManchester(generateFrame(frno), 0);
+				//console.log(chanId+('    '+frno).substr(-5) + ' ' + asBinary(channel.data));
+				channel.currentFrame = frno;
+			}
+			var value = getBit(channel.data, bit);
+			// fill with a simple sine wave at max amplitude
+			var lastValue = channel.lastValue || 0;
+			var val = Math.round( (amplitude*(value ? -0.7 : +0.7)) + lastValue*0.2 );
+			channel.lastValue = val;
+			var offset = (i * sampleSize * stream.channels) + (chanId * sampleSize);
+			audio['writeInt' + stream.bitDepth + 'LE'](val, offset);
 		}
 	}
-	this.push(audio);
-
-	this.samplesGenerated += numSamples;
-
+	stream.push(audio);
+	stream.samplesGenerated += numSamples;
 }
-
 
 var Speaker = require('speaker');
 var speaker = new Speaker({channels:smpteEncode.channels, sampleRate:smpteEncode.sampleRate, signed:true});
 smpteEncode.pipe(speaker);
-
