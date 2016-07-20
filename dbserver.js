@@ -430,6 +430,7 @@ Item.prototype.toBuffer = function toBuffer(){
 	return Buffer.concat(k.map(function(v){ return v.toBuffer(); }));
 }
 
+module.exports.ItemHandshake = ItemHandshake;
 function ItemHandshake(){
 	this.length = 5;
 }
@@ -437,7 +438,7 @@ ItemHandshake.prototype.toBuffer = function toBuffer(){
 	return new Buffer([0x11, 0x00, 0x00, 0x00, 0x01]);
 }
 
-
+module.exports.ItemHello = ItemHello;
 function ItemHello(data){
 	this.length = 0x25;
 	if(data instanceof Buffer){
@@ -458,7 +459,7 @@ ItemHello.prototype.toBuffer = function toBuffer(){
 	]);
 }
 
-
+module.exports.ItemSup = ItemSup;
 function ItemSup(data){
 	this.length = 0x2a;
 	if(data instanceof Buffer){
@@ -509,7 +510,7 @@ function Item10(data){
 		this.playlist = 0; // undefined
 		this.sortOrder = data[0x29]; // undefined
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item10.prototype.toBuffer = function toBuffer(){
@@ -541,7 +542,7 @@ function Item11(data){
 		this.playlist = (data[0x2d]<<8) | data[0x2e];
 		this._x33 = data[0x33];
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item11.prototype.toBuffer = function toBuffer(){
@@ -565,7 +566,7 @@ function Item14(data){
 		this.requestId = (data[0x08]<<8) | (data[0x09]);
 		this.affectedMenu = data[0x22];
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item14.prototype.toBuffer = function toBuffer(){
@@ -590,7 +591,7 @@ function Item20(data){
 		this.affectedMenu = data[0x22];
 		this.resourceId = (data[0x28]<<8) + (data[0x29]);
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item20.prototype.toBuffer = function toBuffer(){
@@ -614,7 +615,7 @@ function Item2002(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 	this.length = 0x20 + 5 + 5;
 }
@@ -639,7 +640,7 @@ function Item2003(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2003.prototype.toBuffer = function toBuffer(){
@@ -663,7 +664,7 @@ function Item2004(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[2].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2004.prototype.toBuffer = function toBuffer(){
@@ -690,7 +691,7 @@ function Item2102(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2102.prototype.toBuffer = function toBuffer(){
@@ -734,9 +735,11 @@ function Item2204(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2204.prototype.toBuffer = function toBuffer(){
@@ -761,7 +764,7 @@ function Item2504(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2504.prototype.toBuffer = function toBuffer(){
@@ -786,7 +789,7 @@ function Item2904(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item2904.prototype.toBuffer = function toBuffer(){
@@ -814,7 +817,7 @@ function Item30(data){
 		this.len_a = message.args[4].uint; // This always seems to match the length provided in the earlier navigate request
 		this.opt5 = message.args[5].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item30.prototype.toBuffer = function toBuffer(){
@@ -844,7 +847,7 @@ function Item31(data){
 		this.affectedMenu = message.args[0].data[1];
 		this.resourceId = message.args[1].uint;
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 	this.length = data.length;
 }
@@ -866,7 +869,7 @@ function Item3e(data){
 		this.method = 0x3e;
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
 	}else{
-		for(var n in data) this[n]=data;
+		for(var n in data) this[n]=data[n];
 	}
 }
 Item3e.prototype.toBuffer = function toBuffer(){
@@ -912,6 +915,7 @@ function Item4001(r, aaaa){
 	else if (r instanceof Item) var message = requestId;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.opt0 = message.args[0].uint; // Usually 0, seems to be 1 if from [Info] menu
 		this.opt1 = message.args[1].uint;
 	}else if(typeof r=='object'){
 		var data = r;
@@ -923,7 +927,7 @@ function Item4001(r, aaaa){
 }
 Item4001.prototype.toBuffer = function toBuffer(){
 	var response = new Item(this.requestId, 0x40, 0x01, [
-		new Kibble11(1),
+		new Kibble11(this.opt0),
 		new Kibble11(this.opt1),
 	]);
 	return response.toBuffer();
@@ -1222,12 +1226,21 @@ function handleDBServerConnection(device, socket) {
 			console.error(data);
 			throw new Error('Invalid magic header');
 		}
+
+		// Parse message contents
+		if(message instanceof Item){
+			var info = parseItem(message, data);
+		}else{
+			var info = message;
+		}
+		assertParsed(data, info);
+
 		if(message.a==0x10){
-			var affectedMenu = message.args[0].data[1];
+			var affectedMenu = info.affectedMenu;
 			console.log('  navigate to device menu');
 			var menu = state.menus[affectedMenu] = {};
 			menu.method = message.a;
-			menu.listing = message.b;
+			menu.listing = info.listing; // this is really the second byte of the 'type' field
 			menu.playlist = 0; // undefined
 			if(menu.listing==0x00){
 				menu.items = [
@@ -1292,14 +1305,6 @@ function handleDBServerConnection(device, socket) {
 			sendItems([response_prerequest]);
 			return;
 		}
-
-		// Parse message contents
-		if(message instanceof Item){
-			var info = parseItem(message, data);
-		}else{
-			var info = message;
-		}
-		assertParsed(data, info);
 
 		if(info instanceof Item11){
 			var menu = state.menus[info.affectedMenu] = {};

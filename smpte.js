@@ -1,6 +1,3 @@
-
-
-
 var Readable = require('stream').Readable;
 
 var smpteData = new Readable();
