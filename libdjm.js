@@ -204,7 +204,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 			address: rinfo.address,
 		};
 		for(var n in device.devices){
-			if(device.devices[n].alive.valueOf() > new Date().valueOf()+6000){
+			if(new Date().valueOf() > device.devices[n].alive.valueOf()+6000){
 				delete device.devices[n];
 				device.log('Lost x'+n.toString(16));
 				emitDeviceChange = true;
