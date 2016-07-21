@@ -42,9 +42,9 @@ var DJMDeviceDefaults = {
 	// Internal state management
 	haveSent216: false,
 	// Callbacks
-	onDeviceChange: null,
-	onTrackChangeDetect: null,
-	onTrackChangeMetadata: null,
+	onDeviceChange: null, // if a device appears or dissappears on the network
+	onTrackChangeDetect: null, // if the currently playing track on a device changes
+	onTrackChangeMetadata: null, // when we receive the metadata of the newly playing track
 };
 
 module.exports.DJMDevice = DJMDevice;
@@ -192,18 +192,26 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		}
 		device.sendDeviceAck(rinfo.address);
 	}else if(type==0x06){
+		var emitDeviceChange = false;
 		var chan = msg[0x24];
+		for(var modelName=''; msg[0x0c+modelName.length]; ) modelName += String.fromCharCode(msg[0x0c+modelName.length]);
 		//device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device is channel '+msg[0x24].toString(16));
+		if(!device.devices[chan]) emitDeviceChange=true;
 		device.devices[chan] = {
 			chan: chan,
+			modelName: modelName,
 			alive: new Date,
 			address: rinfo.address,
 		};
 		for(var n in device.devices){
 			if(device.devices[n].alive.valueOf() > new Date().valueOf()+6000){
 				delete device.devices[n];
-				device.log('Lost '+n);
+				device.log('Lost x'+n.toString(16));
+				emitDeviceChange = true;
 			}
+		}
+		if(emitDeviceChange && device.onDeviceChange){
+			device.onDeviceChange(device.devices);
 		}
 	}else if(type==0x08){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+': You must change channels!');
