@@ -268,7 +268,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			beat: msg[0xa6],
 			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
 			playingSpeed: msg.readUInt32BE(0x98) / 0x100000, // the actual BPMs that's coming out of the device, zero if stopped
-			currentSpeed: msg.readUInt32BE(0xc0) / 0x100000, // BPM of the track with current tempo settings if playing and fully up to speed
+			settingSpeed: msg.readUInt32BE(0xc0) / 0x100000, // BPM of the track with current tempo settings if playing and fully up to speed
 			windSpeed: msg.readUInt32BE(0xc4) / 0x100000, // BPM of the track with current tempo settings if playing and fully up to speed
 			trackBpm: ((msg[0x92]<<8) | (msg[0x93]))/100, // BPM of the track before tempo adjustments
 			master: !!(msg[0x9e]&0x01),
