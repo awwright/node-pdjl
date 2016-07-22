@@ -398,7 +398,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		end
 
 		local tempoAdj8c = buffer(0x8c, 4):uint()
-		local x8c = subtree:add(buffer(0x8c, 4), string.format("Tempoadjust: %08x = %03.2f%%", tempoAdj8c, tempoAdj8c*100.0/0x100000.0) )
+		local x8c = subtree:add(buffer(0x8c, 4), string.format("Tempoadjust_8c: %08x = %03.2f%%", tempoAdj8c, tempoAdj8c*100.0/0x100000.0) )
 
 		local x90 = subtree:add(buffer(0x90, 2), string.format("x90: %04x (%s %s)", buffer(0x90, 2):uint(), bits(buffer(0x90, 1)), bits(buffer(0x91, 1)) ) )
 		if buffer(0x90,1):bitfield(0,1)>0 then
@@ -409,9 +409,10 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local trackTempoStr = trackTempo==0xffff and 'unknown' or string.format('%03.2f', trackTempo/100)
 		local x92 = subtree:add(buffer(0x92, 2), string.format("Track tempo: %04x (%s)", trackTempo, trackTempoStr) )
 
+		-- Always 0x7fffffff ?
 		local x94 = subtree:add(buffer(0x94, 4), string.format("x94: %08x", buffer(0x94, 4):uint()) )
 
-		local x98 = subtree:add(buffer(0x98, 4), string.format("Tempoadjust: %08x = %03.2f%%", buffer(0x98, 4):uint(), buffer(0x98, 4):uint()*100.0/0x100000.0) )
+		local x98 = subtree:add(buffer(0x98, 4), string.format("Tempoadjust_98: %08x = %03.2f%%", buffer(0x98, 4):uint(), buffer(0x98, 4):uint()*100.0/0x100000.0) )
 
 		local x9c = subtree:add(buffer(0x9c, 3), string.format("x9c: %06x (%s %s %s)", buffer(0x9c, 3):uint(), bits(buffer(0x9c, 1)), bits(buffer(0x9d, 1)), bits(buffer(0x9e, 4)) ) )
 		if buffer(0x9d,1):bitfield(7,1)>0 then
@@ -446,8 +447,8 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local measure = buffer(0xa2, 2):uint() / 4
 		local beat = buffer(0xa6, 1):uint();
 
-		local xc0 = subtree:add(buffer(0xc0, 4), string.format("Tempoadjust slider position: %08x = %03.2f%%", buffer(0xc0, 4):uint(), buffer(0xc0, 4):uint()*100.0/0x100000.0) )
-		local xc4 = subtree:add(buffer(0xc4, 4), string.format("Tempoadjust play speed/playing: %08x = %03.2f%%", buffer(0xc4, 4):uint(), buffer(0xc4, 4):uint()*100.0/0x100000.0) )
+		local xc0 = subtree:add(buffer(0xc0, 4), string.format("Tempoadjust_c0 slider position: %08x = %03.2f%%", buffer(0xc0, 4):uint(), buffer(0xc0, 4):uint()*100.0/0x100000.0) )
+		local xc4 = subtree:add(buffer(0xc4, 4), string.format("Tempoadjust_c4 play speed/playing: %08x = %03.2f%%", buffer(0xc4, 4):uint(), buffer(0xc4, 4):uint()*100.0/0x100000.0) )
 		local xc8 = subtree:add(buffer(0xc8, 4), string.format("Packet id: %08x", buffer(0xc8, 4):uint() ) )
 
 		pinfo.cols.info = string.format("Beatinfo %d|%d", measure, beat)

@@ -264,13 +264,23 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			trackid: msg.readUInt32BE(0x2c),
 			playlistno: msg[0x33],
 			state: msg[0x7b],
-			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Stopped/Cue', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
+			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Cue Stop', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
 			beat: msg[0xa6],
 			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
-			currentBpm: ((msg[0x92]<<8) | (msg[0x93]))/100,
+			playingSpeed: msg.readUInt32BE(0x98) / 0x100000, // the actual BPMs that's coming out of the device, zero if stopped
+			currentSpeed: msg.readUInt32BE(0xc0) / 0x100000, // BPM of the track with current tempo settings if playing and fully up to speed
+			windSpeed: msg.readUInt32BE(0xc4) / 0x100000, // BPM of the track with current tempo settings if playing and fully up to speed
+			trackBpm: ((msg[0x92]<<8) | (msg[0x93]))/100, // BPM of the track before tempo adjustments
 			master: !!(msg[0x9e]&0x01),
 		};
+		// Emit a message whenever we get one of these status updates
 		if(device.on2x0a) device.on2x0a(data);
+		if(device.devices[data.channel] && device.devices[data.channel].currentTrack!==data.trackid){
+			// Emit a message when the current playing track changes
+			var oldTrack = device.devices[data.channel].currentTrack;
+			device.devices[data.channel].currentTrack = data.trackid;
+			if(device.onTrackChangeDetect) device.onTrackChangeDetect(device.devices[data.channel], oldTrack);
+		}
 		var newMaster = msg[0x89]&0x20 || msg[0x9e]&0x01;
 		if(!newMaster) return;
 		var newMasterChannel = msg[0x21];
