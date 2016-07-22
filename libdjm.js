@@ -197,12 +197,11 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		for(var modelName=''; msg[0x0c+modelName.length]; ) modelName += String.fromCharCode(msg[0x0c+modelName.length]);
 		//device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device is channel '+msg[0x24].toString(16));
 		if(!device.devices[chan]) emitDeviceChange=true;
-		device.devices[chan] = {
-			chan: chan,
-			modelName: modelName,
-			alive: new Date,
-			address: rinfo.address,
-		};
+		var client = device.devices[chan] = device.devices[chan] || {};
+		client.chan = chan;
+		client.modelName = modelName;
+		client.alive = new Date;
+		client.address = rinfo.address;
 		for(var n in device.devices){
 			if(new Date().valueOf() > device.devices[n].alive.valueOf()+6000){
 				delete device.devices[n];
