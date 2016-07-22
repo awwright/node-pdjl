@@ -261,7 +261,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		var data = {
 			channel: msg[0x24],
 			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27]],
-			trackid: [msg[0x2c],msg[0x2d],msg[0x2e],msg[0x2f]],
+			trackid: msg.readUInt32BE(0x2c),
 			playlistno: msg[0x33],
 			state: msg[0x7b],
 			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Stopped/Cue', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
