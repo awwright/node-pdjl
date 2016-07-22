@@ -31,6 +31,7 @@ function formatBuf(b){
 	var itemType = null;
 	var itemType0 = null;
 	var itemType1 = null;
+	var requestType = null;
 	for(var i=0; i<b.length; ){
 		var attachment = null;
 		var ki = i; // kibble start offset
@@ -53,6 +54,9 @@ function formatBuf(b){
 				itemType = b.readUInt16BE(ki+1);
 				itemType0 = b0;
 				itemType1 = b1;
+			}
+			if(itemType==0x4000 && kibble==4){
+				requestType = numeric;
 			}
 			if(b0==0x87 && b1==0x23) x += '  (Magic)';
 			if(b0==0x03 && b1==0x80) x += '  (Request ID)';
@@ -80,9 +84,8 @@ function formatBuf(b){
 		if(itemType==0x3000 && kibble==4) x += '  (menu='+menuLabels[b1]+')';
 		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
 		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
-		// responses
+		// Response-type packet
 		if(itemType==0x4000 && kibble==4) x += '  (method type of call)';
-		if(itemType==0x4000 && kibble==5) x += '  (menu item count)';
 		// Menu item
 		if(itemType==0x4101 && kibble==4) x += '  (numeric2 field)';
 		if(itemType==0x4101 && kibble==5) x += '  (numeric1 field)';
@@ -106,6 +109,9 @@ function formatBuf(b){
 		//if(itemType==0x4702 && argi==6) x += '  (attachment size)';
 		if(itemType==0x4702 && argi==7) x += '  (attachment size)';
 		if(itemType==0x4702 && argi==8) x += '  (attachment bytestring)';
+		// The responses
+		if(requestType==0x0000 && argi==1) x += '  (channel number)';
+		if(requestType==0x4000 && argi==1) x += '  (menu item count)';
 		x+="\n";
 		if(attachment){
 			x += formatBufBytes(attachment).replace(/^/gm, "    ") + "\n";
