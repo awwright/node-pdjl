@@ -401,7 +401,7 @@ function parseItem(message, data){
 	var ItemStruct = mapItem[((message.a<<8)|(message.b)).toString(16)] || mapItem[message.a.toString(16)];
 	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
 	var item = new ItemStruct(data);
-	assertParsed(data, item);
+	assertParsed(data.slice(0,item.length), item);
 	return item;
 }
 
@@ -905,13 +905,14 @@ Item3e.prototype.toBuffer = function toBuffer(){
 // A general success packet, carries no attached data
 // If a response to a menu navigation request, carries the number of menu items in the requested menu
 module.exports.Item4000 = Item4000;
-function Item4000(r, aaaa, len){
+function Item4000(data, aaaa, len){
 	this.length = 0x2a;
-	if(r instanceof Buffer){
-		var data = r;
-		this.requestId = (data[8]<<8) | (data[9]);
-		this.requestType = (data[0x23]<<8) | (data[0x24]);
-		this.itemCount = (data[0x28]<<8) | (data[0x29]);
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = requestId;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.requestType = message.args[0].uint;
+		this.itemCount = message.args[1].uint;
 	}else if(typeof r=='object'){
 		var data = r;
 		for(var n in data) this[n]=data[n];

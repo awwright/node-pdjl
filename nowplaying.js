@@ -160,11 +160,11 @@ function connectDB(port, address, callback){
 			console.log('Response class: '+message.constructor.name);
 			// Parse message contents
 			if(message instanceof DBSt.Item){
-				var info = DBSt.parseItem(message, data);
+				var info = DBSt.parseItem(message, data.slice(0,message.length));
 			}else{
 				var info = message;
 			}
-			DBSt.assertParsed(data, info);
+			DBSt.assertParsed(data.slice(0,message.length), info);
 			console.log(info);
 			console.log('Response type: '+info.constructor.name);
 			if(info instanceof DBSt.ItemHandshake){
