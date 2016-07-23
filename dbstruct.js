@@ -138,6 +138,19 @@ var menuLabels = module.exports.menuLabels = {
 	8: 'system',
 };
 
+module.exports.itemTypeLabels = {
+	0x01: 'Folder',
+	0x02: 'Album Title',
+	0x03: 'Disc',
+	0x04: 'Track Title',
+	0x06: 'Genre',
+	0x07: 'Artist',
+	0x0a: 'Rating',
+	0x0b: 'Duration (s)',
+	0x0d: 'Tempo (%bpm)',
+	0x0f: 'Key',
+};
+
 // The lower level item parsing
 
 module.exports.Kibble = {

@@ -29,18 +29,17 @@ device.onDeviceChange = function(){
 device.onTrackChangeDetect = function(client){
 	console.log('Track change', client.chan, client.currentTrack);
 	getDBServerSocket(client.chan, function(err, sock){
-		console.log('Have DBServer reference...');
-			console.log('> Item2002');
-			var firstRequestId = sock.issueRequest(new DBSt.Item2002({
-				requestId: firstRequestId,
-				clientChannel: device.channel,
-				affectedMenu: 1,
-				opt0_2: 2,
-				resourceId: client.currentTrack,
-			}), haveFirstRequest);
+		//console.log('Have DBServer reference...');
+		//console.log('> Item2002');
+		var firstRequestId = sock.issueRequest(new DBSt.Item2002({
+			requestId: firstRequestId,
+			clientChannel: device.channel,
+			affectedMenu: 1,
+			opt0_2: 2,
+			resourceId: client.currentTrack,
+		}), haveFirstRequest);
 		function haveFirstRequest(err, data, info){
-			console.log(info);
-			console.log('> Item3000');
+			//console.log('> Item3000');
 			var menuRequestId = sock.issueRequest(new DBSt.Item30({
 				requestId: menuRequestId,
 				clientChannel: device.channel,
@@ -54,7 +53,11 @@ device.onTrackChangeDetect = function(client){
 		}
 		function haveRenderedMenu(err, data, info){
 			console.log('haveRenderedMenu');
-			console.log(info);
+			//console.log(data);
+			data.items.forEach(function(v){
+				var label = v.label || v.numeric;
+				console.log(DBSt.itemTypeLabels[v.symbol]+': '+label);
+			});
 		}
 	});
 }
