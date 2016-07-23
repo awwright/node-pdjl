@@ -1,7 +1,7 @@
 
 var fs = require('fs');
 
-var DBServer = require('./dbserver.js');
+var DBServer = require('./dbstruct.js');
 
 var filepath = process.argv[2];
 var contents = fs.readFileSync(filepath, 'utf-8');

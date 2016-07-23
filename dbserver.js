@@ -4,6 +4,9 @@
 // Tag List
 // Tag List menu including Remove All Items?
 
+var st = require('./dbstruct.js');
+var ItemHandshake = st.ItemHandshake;
+var ItemHandshake = st.ItemHandshake;
 var artBlob = require('fs').readFileSync('./art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
