@@ -249,12 +249,12 @@ function handleDBServerConnection(device, socket) {
 			var affectedMenu = info.affectedMenu;
 			var menu = state.menus[affectedMenu] = {};
 			menu.items = [
-				new Item41(r, 0x0b, 121, ""), //Duration
-				new Item41(r, 0x0d, 13800, ""), // Tempo
-				new Item41(r, 0x23, 0x1778, ""), // ???
-				new Item41(r, 0x0f, 6, "Fm"), // Key field
-				new Item41(r, 0x0a, 2, ""), // Rating (n/5 stars)
-				new Item41(r, 0x13, 0, "STRING"), // ?
+				new Item41(r, 0x04, 1, ""),
+				new Item41(r, 0x0b, 0xaa, ""),
+				new Item41(r, 0x0d, 0x3a75, ""),
+				new Item41(r, 0x23, 0, "Album Label"),
+				new Item41(r, 0, 0x2a26, "/data/file.mp3", 0, 0x3ebf0b),
+				new Item41(r, 0x2f, 1, ""),
 			];
 			var response_prerequest = new Item4000(r, type, menu.items.length);
 			sendItems([response_prerequest]);
