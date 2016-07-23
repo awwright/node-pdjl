@@ -5,10 +5,13 @@ var ifaceConfFile = process.env.PDJL_CONFIG || 'iface.json';
 console.log('Config: '+ifaceConfFile);
 var ifaceConf = JSON.parse(fs.readFileSync(ifaceConfFile));
 var DJMDevice = require('./libdjm.js').DJMDevice;
+function debug(){
+	console.log.apply(console, arguments);
+}
 
 var device = new DJMDevice;
 device.setConfigureCDJ2000NXS();
-device.channel = 0x2;
+device.channel = 0x4;
 //device.setConfigureRekordbox();
 //device.channel = 0x13;
 device.macaddr = ifaceConf.mac;
@@ -55,9 +58,11 @@ device.onTrackChangeDetect = function(client){
 			console.log('haveRenderedMenu');
 			//console.log(data);
 			data.items.forEach(function(v){
-				var label = v.label || v.numeric;
-				console.log(DBSt.itemTypeLabels[v.symbol]+': '+label);
+				var key = DBSt.itemTypeLabels[v.symbol] || v.symbol.toString(16);
+				var value = v.label || v.numeric;
+				console.log(key+': '+value);
 			});
+			console.log('');
 		}
 	});
 }
@@ -122,9 +127,14 @@ function getDBServerSocket(chan, callback){
 			console.log('Starting initial connection to '+remote.address+':'+remote.dbServerPort+' ...');
 			getDBServerPort(remote.dbServerPort, remote.address, connectDB);
 		}else{
-			connectDB(1051||remote.dbServerPort, remote.address, function(err, d){
-				remote.dbServerSocket = d;
-				callback(err, d);
+			console.log('Starting initial connection to '+remote.address+':'+remote.dbServerPort+' ...');
+			connectDB(1051||remote.dbServerPort, remote.address, function(err, sock){
+				remote.dbServerSocket = sock;
+				sock.on('end', function(newdata){
+					remote.dbServerSocket = null;
+					console.log('CONNECTION CLOSED ['+chan+']');
+				});
+				callback(err, sock);
 			});
 		}
 	});
@@ -145,14 +155,14 @@ function connectDB(port, address, callback){
 		var rid = request.requestId = sock.requestId++;
 		requests[rid] = {};
 		requests[rid].done = cb;
-		console.log(DBSt.formatBuf(request.toBuffer()));
+		debug(DBSt.formatBuf(request.toBuffer()));
 		sock.write(request.toBuffer());
 		return rid;
 	}
 	sock.on('data', function(newdata){
-		console.log('< Response');
+		debug('< Response');
 		data = Buffer.concat([data, newdata]);
-		console.log(DBSt.formatBuf(data));
+		debug(DBSt.formatBuf(data));
 		for(var message; message = DBSt.parseMessage(data);){
 			handleMessage(message);
 			data = data.slice(message.length);
@@ -160,7 +170,7 @@ function connectDB(port, address, callback){
 		}
 		
 		function handleMessage(){
-			console.log('Response class: '+message.constructor.name);
+			debug('Response class: '+message.constructor.name);
 			// Parse message contents
 			if(message instanceof DBSt.Item){
 				var info = DBSt.parseItem(message, data.slice(0,message.length));
@@ -168,11 +178,11 @@ function connectDB(port, address, callback){
 				var info = message;
 			}
 			DBSt.assertParsed(data.slice(0,message.length), info);
-			console.log(info);
-			console.log('Response type: '+info.constructor.name);
+			debug(info);
+			debug('Response type: '+info.constructor.name);
 			if(info instanceof DBSt.ItemHandshake){
-				console.log('> ItemHello');
-				console.log(DBSt.formatBuf(new DBSt.ItemHello(device.channel).toBuffer()));
+				debug('> ItemHello');
+				debug(DBSt.formatBuf(new DBSt.ItemHello(device.channel).toBuffer()));
 				sock.write(new DBSt.ItemHello(device.channel).toBuffer());
 				return;
 			}
@@ -187,19 +197,19 @@ function connectDB(port, address, callback){
 				// This is the first message in a series, don't fire a response just yet
 				req.header = info;
 				req.items = [];
-				console.log('Have header');
+				debug('Have header');
 				return;
 			}
 			if(info instanceof DBSt.Item41){
 				// This is an item in a series, wait for the footer element
 				req.header = info;
 				req.items.push(info);
-				console.log('Have item');
+				debug('Have item');
 				return;
 			}
 			// Handle footer elements and anything else
 			if(req.done){
-				console.log('Have message');
+				debug('Have message');
 				//delete requests[rid];
 				req.done(null, req, info);
 			}else{
@@ -207,7 +217,6 @@ function connectDB(port, address, callback){
 			}
 		}
 	});
-	
 }
 
 // 1. Boot normally, wait 3 more seconds

@@ -149,6 +149,8 @@ module.exports.itemTypeLabels = {
 	0x0b: 'Duration (s)',
 	0x0d: 'Tempo (%bpm)',
 	0x0f: 'Key',
+	0x13: 'Color',
+	0x23: 'Comment',
 };
 
 // The lower level item parsing
@@ -171,6 +173,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2204": 'request beat grid information',
 	"2504": 'request more track data 2',
 	"3000": 'render menu',
+	"3e03": 'inquire about a track from another device',
 	"4000": 'response',
 	"4001": 'render menu (header)',
 	"4002": 'album art',
@@ -339,6 +342,7 @@ var mapItem = module.exports.mapItem = {
 	"2904": Item2904,
 	"30": Item30,
 	"31": Item31,
+	"3e03": Item3e03,
 	"4000": Item4000,
 	"4001": Item4001,
 	"4002": Item4002,
@@ -349,6 +353,7 @@ var mapItem = module.exports.mapItem = {
 	"4602": Item4602,
 	"4702": Item4702,
 	"4a02": Item4a02,
+	"4b02": Item4b02,
 };
 
 module.exports.parseMessage = parseMessage;
@@ -896,23 +901,27 @@ Item31.prototype.toBuffer = function toBuffer(){
 	return b.toBuffer();
 }
 
-// Has something to do with... idk
-module.exports.Item3e = Item3e;
-function Item3e(data){
-	if(data instanceof Buffer){
-		this.length = data.length;
-		this.method = 0x3e;
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
+// Used for requesting a track on another device
+module.exports.Item3e03 = Item3e03;
+function Item3e03(data){
+	this.method = 0x3e;
+	this.length = 0x20 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.opt0_2 = message.args[0].data[2];
 	}else{
 		for(var n in data) this[n]=data[n];
 	}
 }
-Item3e.prototype.toBuffer = function toBuffer(){
-	var _x08 = (this.requestId>>8) & 0xff;
-	var _x09 = (this.requestId>>0) & 0xff;
-	return new Buffer([
-		0x11, 0x87, 0x23, 0x49, 0xae, 0x11, 0x03, 0x80,  _x08, _x09, 0x10, 0x3e, 0x00, 0x0f, 0x04, 0x14,
+Item3e03.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x3e, 0x03, [
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.opt0_2<<8)|0x01),
 	]);
+	return b.toBuffer();
 }
 
 // A general success packet, carries no attached data
@@ -1205,6 +1214,32 @@ Item4a02.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0),
 		new Kibble11(this.body.length),
 		Kibble14.blob(this.body),
+	]);
+	return b.toBuffer();
+}
+
+// In response to Item3e03
+module.exports.Item4b02 = Item4b02;
+function Item4b02(data){
+	this.method = 0x3e;
+	this.length = 0x20 + 5;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
+		this.requestType = message.args[0].uint;
+		this.body = message.args[3].string;
+		this.length = 0x20 + 5 + 5 + 5 + 5+this.body.length*2+2;
+	}else{
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item4b02.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x4b, 0x02, [
+		new Kibble11(this.requestType),
+		new Kibble11(0),
+		new Kibble11(this.body.length*2+2),
+		Kibble26.string(this.body),
 	]);
 	return b.toBuffer();
 }

@@ -259,7 +259,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
 		var data = {
 			channel: msg[0x24],
-			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27]],
+			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27],msg[0x28],msg[0x29],msg[0x2a],msg[0x2b]],
 			trackid: msg.readUInt32BE(0x2c),
 			playlistno: msg[0x33],
 			state: msg[0x7b],
