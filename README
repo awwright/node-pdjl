@@ -1,0 +1,15 @@
+
+File listing:
+- CDJ_DJM_protocol.txt Documentation on startup sequence and general overview of the different protocols in use
+- dbserver.js Code necessary to run a TCP DBserver that runs the CDJ menu system over the network
+- dbstruct.js bi-directional code to format and read menu requests
+- emulate-cdj.js Demo program that acts as a CDJ-2000nexus
+- libdjm.js Basic UDP code for acting as a CDJ device on the network
+- nowplaying.js Demo program that acts as a device and looks for new tracks being played on other devices, and reports their metadata
+- parsedbserver.js Reads hex/ASCII exports from Wireshark and formats them to be prettier for parsing/understanding/reading
+- udpproxy.js Forwards requests for one UDP port to another; used so clients can connect to the local Linux NFS server
+- wireshark.lua Formats and parses UDP packets
+
+Todo:
+- Emulate DJM
+- Emulate DJM that has a live sampler sample ready

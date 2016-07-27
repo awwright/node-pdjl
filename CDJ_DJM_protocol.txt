@@ -166,6 +166,14 @@ Boot CD2 on. Play file.
 Assign CD2 as master by sliding fader.
 
 Boot CD3 on. Play CD. Assign master by pressing button.
+Boot CD2 on. Play file.
+Assign CD2 as master by pressing CDJ3 platter.
+
+Boot CD3 on. Play CD. Assign master by pressing button.
+Boot CD2 on. Play file.
+Assign CD2 as master by reversing CDJ3 playback direction.
+
+Boot CD3 on. Play CD. Assign master by pressing button.
 Boot CD2 on. Play CD.
 Assign CD2 as master by pressing CD3 master button.
 
