@@ -45,6 +45,8 @@ var DJMDeviceDefaults = {
 	onDeviceChange: null, // if a device appears or dissappears on the network
 	onTrackChangeDetect: null, // if the currently playing track on a device changes
 	onTrackChangeMetadata: null, // when we receive the metadata of the newly playing track
+	on1x28: null, // Packet every new beat from a CDJ
+	on2x0a: null, // Status updates on tempo and beat from CDJ
 };
 
 module.exports.DJMDevice = DJMDevice;
@@ -245,6 +247,14 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		device.log('< 1_x26 Acknowledge new master');
 		device.handleNewMaster(msg[0x27]);
 		device.send1x27(rinfo.address);
+	}else if(type==0x28){
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x'+typeStr);
+		var data = {
+			channel: msg[0x24],
+			beat: msg[0x5c],
+		};
+		// Emit a message whenever we get one of these status updates
+		if(device.on1x28) device.on1x28(data);
 	}
 }
 
