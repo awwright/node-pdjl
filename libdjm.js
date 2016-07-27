@@ -267,13 +267,28 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		// Channels on air
 	}else if(type==0x0a){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
+		var analyzedStatus = {
+			1: 'Analyzed',
+			2: 'Unanalyzed',
+			5: 'CD',
+		};
+		var mediaSourceMap = {
+			1: 'CD',
+			2: 'SD',
+			3: 'USB',
+			4: 'rekordbox',
+		};
 		var data = {
 			channel: msg[0x24],
 			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27],msg[0x28],msg[0x29],msg[0x2a],msg[0x2b]],
 			trackid: msg.readUInt32BE(0x2c),
+			discid: msg.slice(0x4c, 0x58).toString('hex'),
 			playlistno: msg[0x33],
 			state: msg[0x7b],
 			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Cue Stop', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
+			sourceDevice: msg[0x28],
+			mediaSourceStr: mediaSourceMap[msg[0x29]],
+			analyzedStatusStr: analyzedStatus[msg[0x2a]],
 			beat: msg[0xa6],
 			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
 			playingSpeed: msg.readUInt32BE(0x98) / 0x100000, // the actual BPMs that's coming out of the device, zero if stopped

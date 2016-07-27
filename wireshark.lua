@@ -1,7 +1,7 @@
 
 -- This is a Lua script for Wireshark
 -- Call like:
--- wireshark -X lua_script:djm.wireshark -i eth1 -k
+-- wireshark -X lua_script:wireshark.lua -i eth1 -k
 
 udp_table = DissectorTable.get("udp.port")
 

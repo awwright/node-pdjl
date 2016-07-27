@@ -71,6 +71,9 @@ function formatBuf(b){
 			x += ' (' + len + ') ' + JSON.stringify(str);
 		}
 		// render selected menu
+		if(itemType==0x2002 && kibble==4) x += '  (channel,menu,arg2,arg3)';
+		if(itemType==0x2002 && kibble==5) x += '  (track ID)';
+		// render selected menu
 		if(itemType==0x3000 && kibble==4) x += '  (menu='+menuLabels[b1]+')';
 		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
 		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
