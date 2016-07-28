@@ -2,6 +2,9 @@
 var dgram = require("dgram");
 var net = require("net");
 
+var DBSt = require('./dbstruct.js');
+var DBServer = require('./dbserver.js');
+
 var DJMDeviceDefaults = {
 	// Generic configuration information
 	channel: 4,
@@ -30,6 +33,7 @@ var DJMDeviceDefaults = {
 	useBeat128: false,
 	useBeat20a: false,
 	useBeat229: false,
+	useDbserver: false,
 	// Device configuration information
 	hostname: 'localhost',
 	// Device state information
@@ -79,6 +83,7 @@ DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	device.useBeat128 = false;
 	device.useBeat20a = false;
 	device.useBeat229 = false; // check this
+	device.useDbserver = false;
 	device.modePlayer = false;
 	device.modeMixer = true;
 	device.hasCD = false;
@@ -98,6 +103,7 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	device.useBeat128 = true;
 	device.useBeat20a = true;
 	device.useBeat229 = false;
+	device.useDbserver = true;
 	device.modePlayer = true;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -114,6 +120,7 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	device.useBeat128 = false;
 	device.useBeat20a = false;
 	device.useBeat229 = true;
+	device.useDbserver = true;
 	device.modePlayer = false;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -160,6 +167,14 @@ DJMDevice.prototype.connect = function connect() {
 	device.sock1b = listenUDP(device.broadcastIP, 50001, device.onMsg1.bind(device));
 	device.sock2 = listenUDP(device.ipaddr, 50002, device.onMsg2.bind(device));
 	device.sock2b = listenUDP(device.broadcastIP, 50002, device.onMsg2.bind(device));
+
+	if(device.useDbserver){
+		waiting++;
+		this.sockDbServer = net.createServer();
+		this.sockDbServer.on('listening', doneBind);
+		this.sockDbServer.on('connection', DBServer.handleDBServerConnection.bind(null, device));
+		this.sockDbServer.listen(1051);
+	}
 
 	function doneBind(){
 		if(--waiting===0){
@@ -380,6 +395,97 @@ DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
 	if(device.onNewMaster) device.onNewMaster(ch);
 }
 
+DJMDevice.prototype.sendDBSQuery = function sendDBQuery(chan, request, callback){
+	
+}
+
+DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
+	var device = this;
+	var target = device.devices[chan];
+	if(!target) throw new Error('No device');
+	if(target.dbsSocket) return void process.nextTick(function(){
+		callback(null, this.devices[chan].dbsSocket);
+	});
+	var port = 1051;
+	var address = target.address;
+	function debug(){};
+	console.log('dbServer on '+port);
+	//var sock = net.connect(port, address);
+	var sock = net.connect(1051, address);
+	console.log('> Handshake');
+	sock.write(new DBSt.ItemHandshake().toBuffer());
+	var init = 0;
+	sock.requestId = 1;
+	var requests = {};
+	var data = new Buffer(0);
+	sock.issueRequest = issueRequest;
+	function issueRequest(request, cb){
+		var rid = request.requestId = sock.requestId++;
+		requests[rid] = {};
+		requests[rid].done = cb;
+		debug(DBSt.formatBuf(request.toBuffer()));
+		sock.write(request.toBuffer());
+		return rid;
+	}
+	sock.on('data', function(newdata){
+		debug('< Response');
+		data = Buffer.concat([data, newdata]);
+		debug(DBSt.formatBuf(data));
+		for(var message; message = DBSt.parseMessage(data);){
+			handleMessage(message);
+			data = data.slice(message.length);
+			if(!data.length) break;
+		}
+		
+		function handleMessage(){
+			debug('Response class: '+message.constructor.name);
+			// Parse message contents
+			if(message instanceof DBSt.Item){
+				var info = DBSt.parseItem(message, data.slice(0,message.length));
+			}else{
+				var info = message;
+			}
+			DBSt.assertParsed(data.slice(0,message.length), info);
+			debug(info);
+			debug('Response type: '+info.constructor.name);
+			if(info instanceof DBSt.ItemHandshake){
+				debug('> ItemHello');
+				debug(DBSt.formatBuf(new DBSt.ItemHello(device.channel).toBuffer()));
+				sock.write(new DBSt.ItemHello(device.channel).toBuffer());
+				return;
+			}
+			if(info instanceof DBSt.ItemSup){
+				dbService = sock;
+				callback(null, sock);
+				return;
+			}
+			var req = requests[info.requestId];
+			if(!req) throw new Error('Cannot find requestId '+info.requestId.toString(16));
+			if(info instanceof DBSt.Item4001){
+				// This is the first message in a series, don't fire a response just yet
+				req.header = info;
+				req.items = [];
+				debug('Have header');
+				return;
+			}
+			if(info instanceof DBSt.Item41){
+				// This is an item in a series, wait for the footer element
+				req.header = info;
+				req.items.push(info);
+				debug('Have item');
+				return;
+			}
+			// Handle footer elements and anything else
+			if(req.done){
+				debug('Have message');
+				//delete requests[rid];
+				req.done(null, req, info);
+			}else{
+				console.error('Unhandled packet!');
+			}
+		}
+	});
+}
 
 // 50000 0x0a
 DJMDevice.prototype.send0x0a = function send0x0a(){

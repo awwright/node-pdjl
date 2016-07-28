@@ -31,8 +31,8 @@ device.onDeviceChange = function(){
 }
 device.onTrackChangeDetect = function(client){
 	console.log('Track change', client.chan, client.currentTrack);
-	getDBServerSocket(client.chan, function(err, sock){
-		//console.log('Have DBServer reference...');
+	device.getDBSSocket(client.chan, function(err, sock){
+		console.log('Have DBServer reference...');
 		//console.log('> Item2002');
 		var firstRequestId = sock.issueRequest(new DBSt.Item2002({
 			requestId: firstRequestId,
@@ -90,8 +90,6 @@ var udpProxy = require('./udpproxy.js');
 udpProxy(50111, device.ipaddr, 111, '127.0.0.1');
 
 var DBSt = require('./dbstruct.js');
-var DBServer = require('./dbserver.js');
-net.createServer(DBServer.handleDBServerConnection.bind(null, device)).listen(1051);
 
 function getDBServerPort(port, host, callback){
 	var sock = net.connect(port, host);
@@ -112,109 +110,6 @@ function getDBServerPort(port, host, callback){
 		if(callback){
 			callback(e);
 			callback = null;
-		}
-	});
-}
-
-function getDBServerSocket(chan, callback){
-	console.log('Looking up DBServer socket...');
-	var remote =  device.devices[chan];
-	if(!remote) throw new Error('Unknown device on channel '+chan);
-	process.nextTick(function(){
-		if(remote.dbServerSocket){
-			callback(null, remote.dbServerSocket);
-		}else if(remote.dbServerPort){
-			console.log('Starting initial connection to '+remote.address+':'+remote.dbServerPort+' ...');
-			getDBServerPort(remote.dbServerPort, remote.address, connectDB);
-		}else{
-			console.log('Starting initial connection to '+remote.address+':'+remote.dbServerPort+' ...');
-			connectDB(1051||remote.dbServerPort, remote.address, function(err, sock){
-				remote.dbServerSocket = sock;
-				sock.on('end', function(newdata){
-					remote.dbServerSocket = null;
-					console.log('CONNECTION CLOSED ['+chan+']');
-				});
-				callback(err, sock);
-			});
-		}
-	});
-}
-
-function connectDB(port, address, callback){
-	console.log('dbServer on '+port);
-	//var sock = net.connect(port, address);
-	var sock = net.connect(1051, address);
-	console.log('> Handshake');
-	sock.write(new DBSt.ItemHandshake().toBuffer());
-	var init = 0;
-	sock.requestId = 1;
-	var requests = {};
-	var data = new Buffer(0);
-	sock.issueRequest = issueRequest;
-	function issueRequest(request, cb){
-		var rid = request.requestId = sock.requestId++;
-		requests[rid] = {};
-		requests[rid].done = cb;
-		debug(DBSt.formatBuf(request.toBuffer()));
-		sock.write(request.toBuffer());
-		return rid;
-	}
-	sock.on('data', function(newdata){
-		debug('< Response');
-		data = Buffer.concat([data, newdata]);
-		debug(DBSt.formatBuf(data));
-		for(var message; message = DBSt.parseMessage(data);){
-			handleMessage(message);
-			data = data.slice(message.length);
-			if(!data.length) break;
-		}
-		
-		function handleMessage(){
-			debug('Response class: '+message.constructor.name);
-			// Parse message contents
-			if(message instanceof DBSt.Item){
-				var info = DBSt.parseItem(message, data.slice(0,message.length));
-			}else{
-				var info = message;
-			}
-			DBSt.assertParsed(data.slice(0,message.length), info);
-			debug(info);
-			debug('Response type: '+info.constructor.name);
-			if(info instanceof DBSt.ItemHandshake){
-				debug('> ItemHello');
-				debug(DBSt.formatBuf(new DBSt.ItemHello(device.channel).toBuffer()));
-				sock.write(new DBSt.ItemHello(device.channel).toBuffer());
-				return;
-			}
-			if(info instanceof DBSt.ItemSup){
-				dbService = sock;
-				callback(null, sock);
-				return;
-			}
-			var req = requests[info.requestId];
-			if(!req) throw new Error('Cannot find requestId '+info.requestId.toString(16));
-			if(info instanceof DBSt.Item4001){
-				// This is the first message in a series, don't fire a response just yet
-				req.header = info;
-				req.items = [];
-				debug('Have header');
-				return;
-			}
-			if(info instanceof DBSt.Item41){
-				// This is an item in a series, wait for the footer element
-				req.header = info;
-				req.items.push(info);
-				debug('Have item');
-				return;
-			}
-			// Handle footer elements and anything else
-			if(req.done){
-				debug('Have message');
-				//delete requests[rid];
-				req.done(null, req, info);
-			}else{
-				console.error('Unhandled packet!');
-			}
 		}
 	});
 }

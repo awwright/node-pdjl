@@ -7,7 +7,7 @@
 var st = require('./dbstruct.js');
 var ItemHandshake = st.ItemHandshake;
 var ItemHandshake = st.ItemHandshake;
-var artBlob = require('fs').readFileSync('./art.jfif');
+var artBlob = require('fs').readFileSync(__dirname+'/art.jfif');
 var showIncoming = true;
 var showOutgoing = true;
 
