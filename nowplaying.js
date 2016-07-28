@@ -31,40 +31,34 @@ device.onDeviceChange = function(){
 }
 device.onTrackChangeDetect = function(client){
 	console.log('Track change', client.chan, client.currentTrack);
-	device.getDBSSocket(client.chan, function(err, sock){
-		console.log('Have DBServer reference...');
-		//console.log('> Item2002');
-		var firstRequestId = sock.issueRequest(new DBSt.Item2002({
-			requestId: firstRequestId,
+	device.sendDBSQuery(client.chan, new DBSt.Item2002({
+		clientChannel: device.channel,
+		affectedMenu: 1,
+		opt0_2: 2,
+		resourceId: client.currentTrack,
+	}), haveFirstRequest);
+	function haveFirstRequest(err, data, info){
+		console.log('Have Item2002', info);
+		device.sendDBSQuery(client.chan, new DBSt.Item30({
 			clientChannel: device.channel,
 			affectedMenu: 1,
 			opt0_2: 2,
-			resourceId: client.currentTrack,
-		}), haveFirstRequest);
-		function haveFirstRequest(err, data, info){
-			//console.log('> Item3000');
-			var menuRequestId = sock.issueRequest(new DBSt.Item30({
-				requestId: menuRequestId,
-				clientChannel: device.channel,
-				affectedMenu: 1,
-				opt0_2: 2,
-				offset: 0,
-				limit: info.itemCount,
-				len_a: info.itemCount,
-				opt5: 0,
-			}), haveRenderedMenu);
-		}
-		function haveRenderedMenu(err, data, info){
-			console.log('haveRenderedMenu');
-			//console.log(data);
-			data.items.forEach(function(v){
-				var key = DBSt.itemTypeLabels[v.symbol] || v.symbol.toString(16);
-				var value = v.label || v.numeric;
-				console.log(key+': '+value);
-			});
-			console.log('');
-		}
-	});
+			offset: 0,
+			limit: info.itemCount,
+			len_a: info.itemCount,
+			opt5: 0,
+		}), haveRenderedMenu);
+	}
+	function haveRenderedMenu(err, data, info){
+		console.log('Have Item30');
+		//console.log(data);
+		data.items.forEach(function(v){
+			var key = DBSt.itemTypeLabels[v.symbol] || v.symbol.toString(16);
+			var value = v.label || v.numeric;
+			console.log(key+': '+value);
+		});
+		console.log('');
+	}
 }
 device.onTrackChangeMetadata = function(client){
 	console.log('Track change metadata', client.chan, client.currentTrack);

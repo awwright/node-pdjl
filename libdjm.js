@@ -396,7 +396,9 @@ DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
 }
 
 DJMDevice.prototype.sendDBSQuery = function sendDBQuery(chan, request, callback){
-	
+	this.getDBSSocket(chan, function(err, sock){
+		sock.issueRequest(request, callback);
+	});
 }
 
 DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
@@ -404,14 +406,14 @@ DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 	var target = device.devices[chan];
 	if(!target) throw new Error('No device');
 	if(target.dbsSocket) return void process.nextTick(function(){
-		callback(null, this.devices[chan].dbsSocket);
+		callback(null, target.dbsSocket);
 	});
 	var port = 1051;
 	var address = target.address;
-	function debug(){};
-	console.log('dbServer on '+port);
-	//var sock = net.connect(port, address);
-	var sock = net.connect(1051, address);
+	function debug(){
+		//console.log.apply(console, arguments);
+	};
+	var sock = target.dbsSocket = net.connect(port, address);
 	console.log('> Handshake');
 	sock.write(new DBSt.ItemHandshake().toBuffer());
 	var init = 0;
@@ -436,7 +438,6 @@ DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 			data = data.slice(message.length);
 			if(!data.length) break;
 		}
-		
 		function handleMessage(){
 			debug('Response class: '+message.constructor.name);
 			// Parse message contents
