@@ -45,6 +45,7 @@ end
 
 
 local deviceTypeMap = {[0x01]="Player", [0x02]="Mixer", [0x04]="Rekordbox"}
+local remoteSourceMap = {[2]="Auto", [3]="USB", [4]="Software", [5]="DJM"}
 
 -- Port 50000
 djmproto0 = Proto("djm0","DJM0")
@@ -169,8 +170,7 @@ function djmproto1.dissector(buffer, pinfo, tree)
 	subtree:add(buffer(0x00, 10), string.format("Magic: %s (%s)", tostring(buffer(0x00, 10)), tostring(buffer(0x00, 10))=='5173707431576d4a4f4c' and 'good' or 'bad' ))
 	subtree:add(buffer(0x0a, 1), string.format("Type: %02x (%s)", typ, typestr(typ)))
 	subtree:add(buffer(0x0b, 20), "Device name: "..buffer(0x0b, 20):stringz())
-	subtree:add(buffer(0x1d, 1), string.format("x1d: %02x", buffer(0x1d, 1):uint()) )
-	subtree:add(buffer(0x1e, 2), string.format("x1e: %02x", buffer(0x1e, 2):uint()) )
+	subtree:add(buffer(0x1f, 1), string.format("x1f: %02x", buffer(0x1f, 1):uint()) )
 	-- This isn't quite right, some setting on the CDJ is now making this output 0x03
 	subtree:add(buffer(0x20, 1), string.format("x20: %02x (1 from Rekordbox, 0 otherwise?)", buffer(0x20, 1):uint()))
 	local channel = buffer(0x21, 1):uint()
@@ -220,8 +220,10 @@ function djmproto1.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0x3c, 24), string.format("x10: ff{24}") )
 		local tempoAdjust = buffer(0x54, 4):uint()
 		local x54 = subtree:add(buffer(0x54, 4), string.format("Tempoadjust: %08x = %03.2f%%", tempoAdjust, tempoAdjust*100.0/0x100000.0) )
+		local x54 = subtree:add(buffer(0x58, 2), string.format("x58: %04x [zero?]", buffer(0x58, 2):uint()) )
 		subtree:add(buffer(0x5a, 2), string.format("BPM: %03.2f", buffer(0x5a, 2):uint()/100.0) )
 		subtree:add(buffer(0x5c, 1), string.format("Beat: %d", buffer(0x5c, 1):uint()) )
+		local x54 = subtree:add(buffer(0x5d, 2), string.format("x5d: %04x [zero?]", buffer(0x5d, 2):uint()) )
 		subtree:add(buffer(0x5f, 1), string.format("Channel.2: %x", buffer(0x5f, 1):uint()) )
 		local channelNum = buffer(0x5f, 1):uint()
 		local deviceStr
@@ -231,11 +233,6 @@ function djmproto1.dissector(buffer, pinfo, tree)
 			deviceStr = string.format("Chan%d", channelNum)
 		end
 		pinfo.cols.info = string.format("Beat from %s: %03.2fBPM, |%d", deviceStr, buffer(0x5a, 2):uint()/100.0, buffer(0x5c, 1):uint())
-
-	elseif typ==0x29 then
-		-- Ports 50001, 50002
-		local x37 = subtree:add(buffer(x37, 1), string.format("Current beat: %d (%s)", buffer(x37, 1):uint() ) )
-		pinfo.cols.info = string.format("Mixer discovery packet of some sort")
 
 	elseif typ==0x2a then
 		-- Port 50002
@@ -289,14 +286,14 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- Sent by CDJ when rekordbox connects after a successful NFS mount
 		subtree:add(buffer(0x24, 4), string.format("IPaddr: %d.%d.%d.%d", buffer(0x24,1):uint(), buffer(0x25,1):uint(), buffer(0x26,1):uint(), buffer(0x27,1):uint()) )
 		subtree:add(buffer(0x28, 4), string.format("Remote channel: %08x", buffer(0x28,4):uint() ) )
-		subtree:add(buffer(0x2c, 4), string.format("Remote source: %08x [2=SD, 3=USB, 4=Software]", buffer(0x2c,4):uint() ) )
+		subtree:add(buffer(0x2c, 4), string.format("Remote source: %08x (%s)", buffer(0x2c,4):uint(), remoteSourceMap[buffer(0x2c,4):uint()] ) )
 		pinfo.cols.info = string.format("2_05 What about your volumes?")
 
 
 	elseif typ==0x06 then
 		-- rekordbox replies to 0_x05 packet with this
 		subtree:add(buffer(0x24, 4), string.format("Remote channel: %08x", buffer(0x24,4):uint() ) )
-		subtree:add(buffer(0x28, 4), string.format("Remote source: %08x", buffer(0x28,4):uint() ) )
+		subtree:add(buffer(0x28, 4), string.format("Remote source: %08x (%s)", buffer(0x28,4):uint(), remoteSourceMap[buffer(0x28,4):uint()] ) )
 		subtree:add(buffer(0x2c, 64), string.format("x2c: %s", buffer(0x2c,64):ustringz() ) )
 		subtree:add(buffer(0x6c, 40), string.format("x6c: %s", buffer(0x6c,40):ustringz() ) )
 		subtree:add(buffer(0xa6, 2), string.format("Number of tracks: %d", buffer(0xa6,2):uint() ) )
@@ -453,6 +450,15 @@ function djmproto2.dissector(buffer, pinfo, tree)
 
 		pinfo.cols.info = string.format("Beatinfo %d|%d", measure, beat)
 
+	elseif typ==0x0d then
+		-- Sent by DJM if it has a file that can be played
+		pinfo.cols.info = string.format("2_0d I've got files")
+		subtree:add(buffer(0x24, 4), string.format("x24: %x (always 0x00000021)", buffer(0x24, 4):uint(), lengthGood) )
+		subtree:add(buffer(0x28, 4), string.format("x28: %x (always 0x00000001)", buffer(0x28, 4):uint(), lengthGood) )
+		subtree:add(buffer(0x2c, 0x40), string.format("Filename: %s", buffer(0x2c,0x40):ustringz() ) )
+		subtree:add(buffer(0x6c, 0x40), string.format("Path: %s", buffer(0x6c,0x40):ustringz() ) )
+		subtree:add(buffer(0xac, 0x17), string.format("Comment: %s", buffer(0xac,0x17):ustringz() ) )
+
 	elseif typ==0x10 then
 		-- Sent by CDJ to Rekordbox after first 0_06 packet with channel number>0x10
 		-- Seems to be asking for "hey what can you export to me"
@@ -499,6 +505,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		if buffer(0x27,1):bitfield(2,1)>0 then
 			x27:add(buffer(0x27,2), string.format('..1..... = Mixer is master'))
 		end
+		local x2e = subtree:add(buffer(0x2e, 1), string.format("Current BPM: %03.2f (%s)", buffer(0x2e, 1):uint()/100 ) )
 		local x37 = subtree:add(buffer(0x37, 1), string.format("Current beat: %d", buffer(0x37, 1):uint() ) )
 		pinfo.cols.info = string.format("Master packet of some sort")
 
