@@ -71,10 +71,13 @@ function formatBuf(b){
 			x += ' (' + len + ') ' + JSON.stringify(str);
 		}
 		// render selected menu
-		if(itemType==0x2002 && kibble==4) x += '  (channel,menu,arg2,arg3)';
+		if(itemType==0x2002 && kibble==4) x += '  (chan='+b0+' menu='+menuLabels[b1]+' device='+mediaSourceMap[b2]+' ??='+b3+')';
 		if(itemType==0x2002 && kibble==5) x += '  (track ID)';
+		// request CD track data
+		if(itemType==0x2202 && kibble==4) x += '  (chan='+b0+' menu='+menuLabels[b1]+' device='+mediaSourceMap[b2]+')';
+		if(itemType==0x2202 && kibble==5) x += '  (track ID)';
 		// render selected menu
-		if(itemType==0x3000 && kibble==4) x += '  (menu='+menuLabels[b1]+')';
+		if(itemType==0x3000 && kibble==4) x += '  (chan='+b0+' menu='+menuLabels[b1]+' device='+mediaSourceMap[b2]+')';
 		if(itemType==0x3000 && kibble==5) x += '  (offset='+numeric+')';
 		if(itemType==0x3000 && kibble==6) x += '  (limit='+numeric+')';
 		// Response-type packet
@@ -86,7 +89,7 @@ function formatBuf(b){
 		if(itemType==0x4101 && kibble==7) x += '  (label1 field)';
 		if(itemType==0x4101 && kibble==8) x += '  (byte size2 field)';
 		if(itemType==0x4101 && kibble==9) x += '  (label2 field)';
-		if(itemType==0x4101 && kibble==10) x += '  (icons field)';
+		if(itemType==0x4101 && kibble==10) x += '  (type='+module.exports.itemTypeLabels[b3]+')';
 		if(itemType==0x4101 && kibble==11) x += '  (column configuration(?))';
 		if(itemType==0x4101 && kibble==12) x += '  (album art id)';
 		// Album art image
@@ -139,6 +142,13 @@ var menuLabels = module.exports.menuLabels = {
 	3: 'trackinfo',
 	5: 'sortmenu',
 	8: 'system',
+};
+
+var mediaSourceMap = {
+	1: 'CD',
+	2: 'SD',
+	3: 'USB',
+	4: 'rekordbox',
 };
 
 module.exports.itemTypeLabels = {
@@ -633,7 +643,8 @@ function Item2002(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
-		this.opt0_2 = message.args[0].data[2]; // 4 normally; 2 if called from Link Info menu
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -642,7 +653,7 @@ function Item2002(data){
 }
 Item2002.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, 0x02, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.opt0_2<<8)|0x01),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -659,6 +670,8 @@ function Item2003(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -666,7 +679,7 @@ function Item2003(data){
 }
 Item2003.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, 0x03, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -683,6 +696,8 @@ function Item2004(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[2].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -690,7 +705,7 @@ function Item2004(data){
 }
 Item2004.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, 0x04, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(4),
 		new Kibble11(this.resourceId),
 		new Kibble11(0),
@@ -710,6 +725,8 @@ function Item2102(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -717,7 +734,7 @@ function Item2102(data){
 }
 Item2102.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x21, 0x02, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -734,6 +751,8 @@ function Item2104(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -741,7 +760,7 @@ function Item2104(data){
 }
 Item2104.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x21, 0x04, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -757,6 +776,9 @@ function Item2202(data){
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.trackNumber = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -764,7 +786,7 @@ function Item2202(data){
 }
 Item2202.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x22, 0x02, [
-		new Kibble11((this.clientChannel<<24)|0x010105),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.trackNumber),
 	]);
 	return b.toBuffer();
@@ -781,6 +803,8 @@ function Item2204(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -788,7 +812,7 @@ function Item2204(data){
 }
 Item2204.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x22, 0x04, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -806,6 +830,8 @@ function Item2504(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -813,7 +839,7 @@ function Item2504(data){
 }
 Item2504.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x25, 0x04, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
@@ -829,6 +855,10 @@ function Item2904(data){
 	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -836,7 +866,7 @@ function Item2904(data){
 }
 Item2904.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x29, 0x04, [
-		new Kibble11(0x03010401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 		new Kibble11(0),
 	]);
@@ -854,7 +884,8 @@ function Item30(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
-		this.opt0_2 = message.args[0].data[2]; // 4 normally; 2 if called from Link Info menu
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.offset = message.args[1].uint;
 		this.limit = message.args[2].uint;
 		this.len_a = message.args[4].uint; // This always seems to match the length provided in the earlier navigate request
@@ -865,7 +896,7 @@ function Item30(data){
 }
 Item30.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x30, 0x00, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.opt0_2<<8)|0x01),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.offset),
 		new Kibble11(this.limit),
 		new Kibble11(0),
@@ -888,6 +919,8 @@ function Item31(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -896,7 +929,7 @@ function Item31(data){
 }
 Item31.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x31, 0x00, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|0x0401),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 		new Kibble11(0),
 		new Kibble11(0),
@@ -915,6 +948,8 @@ function Item3e03(data){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.opt0_2 = message.args[0].data[2];
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -922,7 +957,7 @@ function Item3e03(data){
 }
 Item3e03.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x3e, 0x03, [
-		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.opt0_2<<8)|0x01),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 	]);
 	return b.toBuffer();
 }

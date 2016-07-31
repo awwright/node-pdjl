@@ -34,7 +34,8 @@ device.onTrackChangeDetect = function(client){
 	device.sendDBSQuery(client.chan, new DBSt.Item2002({
 		clientChannel: device.channel,
 		affectedMenu: 1,
-		opt0_2: 2,
+		sourceMedia: 2,
+		sourceAnalyzed: 1,
 		resourceId: client.currentTrack,
 	}), haveFirstRequest);
 	function haveFirstRequest(err, data, info){
@@ -42,7 +43,8 @@ device.onTrackChangeDetect = function(client){
 		device.sendDBSQuery(client.chan, new DBSt.Item30({
 			clientChannel: device.channel,
 			affectedMenu: 1,
-			opt0_2: 2,
+			sourceMedia: 2,
+			sourceAnalyzed: 1,
 			offset: 0,
 			limit: info.itemCount,
 			len_a: info.itemCount,

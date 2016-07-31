@@ -2,7 +2,7 @@
 var dgram = require("dgram");
 var net = require("net");
 
-var DBSt = require('./dbstruct.js');
+var DBSt = module.exports.DBSt = require('./dbstruct.js');
 var DBServer = require('./dbserver.js');
 
 var DJMDeviceDefaults = {
@@ -71,6 +71,30 @@ Number.prototype.toByteString = function toByteString(n){
 }
 
 DJMDevice.magic = [0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c];
+
+DJMDevice.playStateMap = {
+	2: 'Loading',
+	3: 'Playing',
+	5: 'Paused',
+	6: 'Cue Stop',
+	7: 'Cue Play',
+	9: 'Seeking',
+};
+
+DJMDevice.analyzedStatus = {
+	1: 'Analyzed',
+	2: 'Unanalyzed',
+	5: 'CD',
+};
+
+DJMDevice.mediaSourceMap = {
+	1: 'CD',
+	2: 'SD',
+	3: 'USB',
+	4: 'rekordbox',
+};
+
+
 
 DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	var device = this;
@@ -282,28 +306,19 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		// Channels on air
 	}else if(type==0x0a){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
-		var analyzedStatus = {
-			1: 'Analyzed',
-			2: 'Unanalyzed',
-			5: 'CD',
-		};
-		var mediaSourceMap = {
-			1: 'CD',
-			2: 'SD',
-			3: 'USB',
-			4: 'rekordbox',
-		};
 		var data = {
 			channel: msg[0x24],
 			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27],msg[0x28],msg[0x29],msg[0x2a],msg[0x2b]],
+			sourceDevice: msg[0x28],
+			sourceMedia: msg[0x29],
+			sourceMediaStr: DJMDevice.mediaSourceMap[msg[0x29]],
+			analyzedStatus: msg[0x2a],
+			analyzedStatusStr: DJMDevice.analyzedStatus[msg[0x2a]],
 			trackid: msg.readUInt32BE(0x2c),
 			discid: msg.slice(0x4c, 0x58).toString('hex'),
 			playlistno: msg[0x33],
 			state: msg[0x7b],
-			stateStr: ({2:'Loading', 3:'Playing', 5:'Paused', 6:'Cue Stop', 7:'Cue Play', 9:'Seeking'})[msg[0x7b]],
-			sourceDevice: msg[0x28],
-			mediaSourceStr: mediaSourceMap[msg[0x29]],
-			analyzedStatusStr: analyzedStatus[msg[0x2a]],
+			stateStr: DJMDevice.playStateMap[msg[0x7b]],
 			beat: msg[0xa6],
 			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
 			playingSpeed: msg.readUInt32BE(0x98) / 0x100000, // the actual BPMs that's coming out of the device, zero if stopped
@@ -317,6 +332,8 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		if(device.devices[data.channel] && device.devices[data.channel].currentTrack!==data.trackid){
 			// Emit a message when the current playing track changes
 			var oldTrack = device.devices[data.channel].currentTrack;
+			device.devices[data.channel].currentSource = data.sourceDevice;
+			device.devices[data.channel].currentMedia = data.sourceMedia;
 			device.devices[data.channel].currentTrack = data.trackid;
 			if(device.onTrackChangeDetect) device.onTrackChangeDetect(device.devices[data.channel], oldTrack);
 		}
@@ -429,6 +446,7 @@ DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 		sock.write(request.toBuffer());
 		return rid;
 	}
+	sock.toJSON = function(){};
 	sock.on('data', function(newdata){
 		debug('< Response');
 		data = Buffer.concat([data, newdata]);
