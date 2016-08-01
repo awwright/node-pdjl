@@ -5,7 +5,77 @@ var net = require("net");
 var DBSt = module.exports.DBSt = require('./dbstruct.js');
 var DBServer = require('./dbserver.js');
 
-var DJMDeviceDefaults = {
+function TrackReference(network, channel, media, ana, id){
+	this.network = network;
+	this.channel = channel;
+	this.media = media;
+	this.analysis = ana;
+	this.id = id;
+};
+TrackReference.prototype.toJSON = function toJSON(){
+	// remove circular references
+	return {
+		channel: this.channel,
+		media: this.media,
+		analysis: this.analysis,
+		id: this.id,
+	};
+};
+TrackReference.prototype.compare = function compare(other){
+	if(typeof other!='object' || !(other instanceof TrackReference)) return;
+	return (
+		this.network==other.network &&
+		this.channel==other.channel &&
+		this.media==other.media &&
+		this.analysis==other.analysis &&
+		this.id == other.id
+	);
+};
+TrackReference.prototype.getMetadata = function requestMetadata(cb){
+	var self = this;
+	self.network.sendDBSQuery(self.channel, new DBSt.Item2002({
+		clientChannel: self.network.channel, // send channel of local device
+		affectedMenu: 1,
+		sourceMedia: self.media,
+		sourceAnalyzed: 1,
+		resourceId: self.id,
+	}), haveFirstRequest);
+	function haveFirstRequest(err, data, info){
+		self.network.sendDBSQuery(self.channel, new DBSt.Item30({
+			clientChannel: self.network.channel,
+			affectedMenu: 1,
+			sourceMedia: 2,
+			sourceAnalyzed: 1,
+			offset: 0,
+			limit: info.itemCount,
+			len_a: info.itemCount,
+			opt5: 0,
+		}), haveRenderedMenu);
+	}
+	function haveRenderedMenu(err, data, info){
+		//console.log(data);
+		var trackData = {
+			track: self,
+		};
+		data.items.forEach(function(v){
+			var key = DBSt.itemTypeLabels[v.symbol] || v.symbol.toString(16);
+			var value = v.label || v.numeric;
+			trackData[key] = value;
+		});
+		cb(null, trackData);
+	}
+};
+
+
+
+module.exports.DJMDevice = DJMDevice;
+function DJMDevice(){
+	for(var k in DJMDevice.Defaults){
+		this[k] = DJMDevice.Defaults[k];
+	}
+}
+
+DJMDevice.Defaults = {
 	// Generic configuration information
 	channel: 4,
 	macaddr: '00:00:00:00:00:00',
@@ -52,13 +122,6 @@ var DJMDeviceDefaults = {
 	on1x28: null, // Packet every new beat from a CDJ
 	on2x0a: null, // Status updates on tempo and beat from CDJ
 };
-
-module.exports.DJMDevice = DJMDevice;
-function DJMDevice(){
-	for(var k in DJMDeviceDefaults){
-		this[k] = DJMDeviceDefaults[k];
-	}
-}
 
 function IPToArr(s){
 	return s.split('.').map(function(v){ return parseInt(v,10); });
@@ -253,6 +316,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		if(emitDeviceChange && device.onDeviceChange){
 			device.onDeviceChange(device.devices);
 		}
+		if(device.onTrackChangeMetadata) device.checkNewTrackMetadata();
 	}else if(type==0x08){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+': You must change channels!');
 	}else{
@@ -308,6 +372,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
 		var data = {
 			channel: msg[0x24],
+			track: new TrackReference(device, msg[0x28], msg[0x29], msg[0x2a], msg.readUInt32BE(0x2c)),
 			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27],msg[0x28],msg[0x29],msg[0x2a],msg[0x2b]],
 			sourceDevice: msg[0x28],
 			sourceMedia: msg[0x29],
@@ -329,13 +394,14 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		};
 		// Emit a message whenever we get one of these status updates
 		if(device.on2x0a) device.on2x0a(data);
-		if(device.devices[data.channel] && device.devices[data.channel].currentTrack!==data.trackid){
+		if(device.devices[data.channel] && !data.track.compare(device.devices[data.channel].track)){
 			// Emit a message when the current playing track changes
-			var oldTrack = device.devices[data.channel].currentTrack;
-			device.devices[data.channel].currentSource = data.sourceDevice;
-			device.devices[data.channel].currentMedia = data.sourceMedia;
-			device.devices[data.channel].currentTrack = data.trackid;
+			var oldTrack = device.devices[data.channel].track;
+			device.devices[data.channel].track = data.track;
+			device.devices[data.channel].trackMetadata = null;
+			device.devices[data.channel].trackMetadataStatus = null;
 			if(device.onTrackChangeDetect) device.onTrackChangeDetect(device.devices[data.channel], oldTrack);
+			if(device.onTrackChangeMetadata) device.checkNewTrackMetadata();
 		}
 		var newMaster = msg[0x89]&0x20 || msg[0x9e]&0x01;
 		if(!newMaster) return;
@@ -412,6 +478,19 @@ DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
 	if(device.onNewMaster) device.onNewMaster(ch);
 }
 
+DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
+	var device = this;
+	for(var ch in this.devices) (function(remote){
+		if(remote.track && remote.trackMetadataStatus!==1 && device.devices[remote.track.channel]){
+			remote.trackMetadataStatus = 1;
+			remote.track.getMetadata(function(err, meta){
+				remote.trackMetadata = meta;
+				device.onTrackChangeMetadata(remote);
+			});
+		}
+	})(this.devices[ch]);
+}
+
 DJMDevice.prototype.sendDBSQuery = function sendDBQuery(chan, request, callback){
 	this.getDBSSocket(chan, function(err, sock){
 		sock.issueRequest(request, callback);
@@ -431,7 +510,6 @@ DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 		//console.log.apply(console, arguments);
 	};
 	var sock = target.dbsSocket = net.connect(port, address);
-	console.log('> Handshake');
 	sock.write(new DBSt.ItemHandshake().toBuffer());
 	var init = 0;
 	sock.requestId = 1;
