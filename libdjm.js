@@ -89,7 +89,19 @@ TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
 		if(!(info instanceof DBSt.Item4602)){
 			return void cb(new Error('Unexpected response'));
 		}
-		cb(null, info);
+		var val = {
+			header: info.body.slice(0, 20),
+			beats: [],
+		};
+		for(var i=20; info.body[i]; i+=16){
+			var beatData = info.body.slice(i, i+16);
+			val.beats.push({
+				beat: beatData[0],
+				time: beatData.readUInt32LE(4),
+				//data: beatData,
+			});
+		}
+		cb(null, val, info);
 	}
 };
 
