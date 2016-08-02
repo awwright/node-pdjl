@@ -201,10 +201,10 @@ var typeLabels = module.exports.typeLabels = {
 // A kibble is... one of the items in the struct that usually starts with 0x11
 module.exports.parseKibble = parseKibble;
 function parseKibble(data){
+	if(data.length<5) return null;
 	//console.log('parseKibble', data);
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
 	var type = data[0];
-	if(!type) throw new Error('No data available');
 	var typeHex = data.slice(0,1).toString('hex');
 	var KibbleStruct = module.exports.Kibble[typeHex];
 	if(!KibbleStruct) throw new Error('Unknown kibble type '+typeHex);
@@ -375,6 +375,7 @@ function parseMessage(data){
 	if(!(data instanceof Buffer)) throw new Error('data not a buffer');
 	var offset = 0;
 	var info0 = parseKibble(data);
+	if(!info0) return null;
 	offset += info0.length;
 	// The first packet that comes in on the connection always seems to be the handshake:
 	// the same five bytes in both directions, client first
@@ -387,8 +388,10 @@ function parseMessage(data){
 	}
 	// Look up second and third kibble
 	var info1 = parseKibble(data.slice(offset));
+	if(!info1) return null;
 	offset += info1.length;
 	var info2 = parseKibble(data.slice(offset));
+	if(!info2) return null;
 	offset += info2.length;
 	if(!(info2 instanceof Kibble10)){
 		throw new Error('Missing Kibble10');
@@ -406,6 +409,7 @@ function parseMessage(data){
 	}
 	// info3 tells us which arguments to expect
 	var info3 = parseKibble(data.slice(offset));
+	if(!info3) return null;
 	offset += info3.length;
 	if(!(info3 instanceof Kibble14)){
 		throw new Error('Missing Kibble14');
@@ -420,6 +424,7 @@ function parseMessage(data){
 			continue;
 		}
 		var infon = parseKibble(data.slice(offset));
+		if(!infon) return null;
 		item.args.push(infon);
 		offset += infon.length;
 	}
