@@ -41,6 +41,10 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 		resourceId: self.id,
 	}), haveFirstRequest);
 	function haveFirstRequest(err, data, info){
+		if(err){
+			console.error('Error', err.toString());
+			return;
+		}
 		self.network.sendDBSQuery(self.channel, new DBSt.Item30({
 			clientChannel: self.network.channel,
 			affectedMenu: 1,
@@ -53,7 +57,10 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 		}), haveRenderedMenu);
 	}
 	function haveRenderedMenu(err, data, info){
-		//console.log(data);
+		if(err){
+			console.error('Error', err.toString());
+			return;
+		}
 		var trackData = {
 			track: self,
 		};
@@ -63,6 +70,26 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 			trackData[key] = value;
 		});
 		cb(null, trackData);
+	}
+};
+TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
+	var self = this;
+	self.network.sendDBSQuery(self.channel, new DBSt.Item2204({
+		clientChannel: self.network.channel, // send channel of local device
+		affectedMenu: 8 ,
+		sourceMedia: self.media,
+		sourceAnalyzed: 1,
+		resourceId: self.id,
+	}), haveFirstRequest);
+	function haveFirstRequest(err, data, info){
+		if(err){
+			console.error('Error', err.toString());
+			return void cb(err);
+		}
+		if(!(info instanceof DBSt.Item4602)){
+			return void cb(new Error('Unexpected response'));
+		}
+		cb(null, info);
 	}
 };
 
@@ -119,6 +146,7 @@ DJMDevice.Defaults = {
 	onDeviceChange: null, // if a device appears or dissappears on the network
 	onTrackChangeDetect: null, // if the currently playing track on a device changes
 	onTrackChangeMetadata: null, // when we receive the metadata of the newly playing track
+	onTrackChangeBeatgrid: null, // when we receive the beat grid for the newly playing track
 	on1x28: null, // Packet every new beat from a CDJ
 	on2x0a: null, // Status updates on tempo and beat from CDJ
 };
@@ -316,7 +344,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		if(emitDeviceChange && device.onDeviceChange){
 			device.onDeviceChange(device.devices);
 		}
-		if(device.onTrackChangeMetadata) device.checkNewTrackMetadata();
+		device.checkNewTrackMetadata();
 	}else if(type==0x08){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+': You must change channels!');
 	}else{
@@ -399,9 +427,10 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			var oldTrack = device.devices[data.channel].track;
 			device.devices[data.channel].track = data.track;
 			device.devices[data.channel].trackMetadata = null;
-			device.devices[data.channel].trackMetadataStatus = null;
+			device.devices[data.channel].trackBeatgrid = null;
+			device.devices[data.channel].trackInfoStatus = null;
 			if(device.onTrackChangeDetect) device.onTrackChangeDetect(device.devices[data.channel], oldTrack);
-			if(device.onTrackChangeMetadata) device.checkNewTrackMetadata();
+			device.checkNewTrackMetadata();
 		}
 		var newMaster = msg[0x89]&0x20 || msg[0x9e]&0x01;
 		if(!newMaster) return;
@@ -480,18 +509,42 @@ DJMDevice.prototype.handleNewMaster = function handleNewMaster(ch){
 
 DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 	var device = this;
-	for(var ch in this.devices) (function(remote){
-		if(remote.track && remote.trackMetadataStatus!==1 && device.devices[remote.track.channel]){
-			remote.trackMetadataStatus = 1;
+	var articles = [
+		function requestMetadata(remote, cb){
+			if(!device.onTrackChangeMetadata) return void cb();
 			remote.track.getMetadata(function(err, meta){
 				remote.trackMetadata = meta;
 				device.onTrackChangeMetadata(remote);
+				cb();
 			});
+		},
+		function requestBeatgrid(remote, cb){
+			if(!device.onTrackChangeBeatgrid) return void cb();
+			remote.track.getBeatgrid(function(err, meta){
+				remote.trackBeatgrid = meta;
+				device.onTrackChangeBeatgrid(remote);
+				cb();
+			});
+		},
+	];
+	for(var ch in this.devices) (function(remote){
+		if(!remote.track) return;
+		if(!device.devices[remote.track.channel]) return;
+		if(remote.trackInfoStatus) return;
+		remote.trackInfoStatus = 1;
+		function nextArticle(i){
+			var articleFn = articles[i];
+			if(!articleFn) return void done();
+			articleFn(remote, nextArticle.bind(null, i+1));
 		}
-	})(this.devices[ch]);
+		nextArticle(0);
+		function done(){
+			remote.trackInfoStatus = 2;
+		}
+	})(device.devices[ch]);
 }
 
-DJMDevice.prototype.sendDBSQuery = function sendDBQuery(chan, request, callback){
+DJMDevice.prototype.sendDBSQuery = function sendDBSQuery(chan, request, callback){
 	this.getDBSSocket(chan, function(err, sock){
 		sock.issueRequest(request, callback);
 	});
@@ -500,7 +553,7 @@ DJMDevice.prototype.sendDBSQuery = function sendDBQuery(chan, request, callback)
 DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 	var device = this;
 	var target = device.devices[chan];
-	if(!target) throw new Error('No device');
+	if(!target) throw new Error('No device '+chan);
 	if(target.dbsSocket) return void process.nextTick(function(){
 		callback(null, target.dbsSocket);
 	});
@@ -574,13 +627,22 @@ DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 			}
 			// Handle footer elements and anything else
 			if(req.done){
-				debug('Have message');
 				//delete requests[rid];
 				req.done(null, req, info);
 			}else{
 				console.error('Unhandled packet!');
 			}
 		}
+	});
+	sock.on('end', function(){
+		console.error('DBS connection closed!');
+		for(var n in requests){
+			requests[n].done(new Error('Connection closed'));
+		}
+		for(var n in requests){
+			delete requests[n];
+		}
+		target.dbsSocket = null;
 	});
 }
 
