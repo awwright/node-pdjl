@@ -179,7 +179,7 @@ var typeLabels = module.exports.typeLabels = {
 	"1000": 'load root menu',
 	"2002": 'request track information',
 	"2003": 'request album art',
-	"2004": 'FIXME request track something or other',
+	"2004": 'request track waveform summary',
 	"2102": 'request track data',
 	"2104": 'request more track data',
 	"2202": 'request CD track data',
