@@ -498,6 +498,11 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0x24, 4), string.format("x24: %08x", buffer(0x24,4):uint() ) )
 		pinfo.cols.info = string.format("Ack load track", measure, beat)
 
+	elseif typ==0x1c then
+		-- This is a response after "ack load track"
+		-- Probably comes up only if a track is playing and "Track Lock" is set on
+		pinfo.cols.info = string.format("Cannot load track")
+
 	elseif typ==0x29 then
 		-- Ports 50002
 		local x24 = subtree:add(buffer(0x24, 1), string.format("Channel: x%02x", buffer(0x24, 1):uint()))
@@ -505,7 +510,7 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		if buffer(0x27,1):bitfield(2,1)>0 then
 			x27:add(buffer(0x27,2), string.format('..1..... = Mixer is master'))
 		end
-		local x2e = subtree:add(buffer(0x2e, 1), string.format("Current BPM: %03.2f (%s)", buffer(0x2e, 1):uint()/100 ) )
+		local x2e = subtree:add(buffer(0x2e, 1), string.format("Current BPM: %03.2f", buffer(0x2e, 1):uint()/100 ) )
 		local x37 = subtree:add(buffer(0x37, 1), string.format("Current beat: %d", buffer(0x37, 1):uint() ) )
 		pinfo.cols.info = string.format("Master packet of some sort")
 
