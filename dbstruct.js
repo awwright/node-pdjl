@@ -192,10 +192,11 @@ var typeLabels = module.exports.typeLabels = {
 	"4002": 'album art',
 	"4101": 'render menu (menu item)',
 	"4201": 'render menu (footer)',
-	"4402": 'track waveform data response',
+	"4402": 'track waveform summary',
 	"4502": 'track data of some sort response',
 	"4602": 'beat grid information',
 	"4702": 'FIXME no clue',
+	"4a02": 'track waveform detail 300Bps',
 };
 
 // A kibble is... one of the items in the struct that usually starts with 0x11

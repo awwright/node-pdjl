@@ -154,7 +154,9 @@ DJMDevice.Defaults = {
 	cdjMediaState: 'none', // {none,loading,play,pause,cue,cueplay,seek}
 	// Internal state management
 	haveSent216: false,
+	connected: false,
 	// Callbacks
+	onListening: null, // when the device has made itself aware to other devices and is ready to send messages
 	onDeviceChange: null, // if a device appears or dissappears on the network
 	onTrackChangeDetect: null, // if the currently playing track on a device changes
 	onTrackChangeMetadata: null, // when we receive the metadata of the newly playing track
@@ -342,7 +344,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		//device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Device is channel '+msg[0x24].toString(16));
 		if(!device.devices[chan]) emitDeviceChange=true;
 		var client = device.devices[chan] = device.devices[chan] || {};
-		client.chan = chan;
+		client.channel = chan;
 		client.modelName = modelName;
 		client.alive = new Date;
 		client.address = rinfo.address;
@@ -1189,6 +1191,8 @@ DJMDevice.prototype.doBootup = function doBootup(){
 // (re-)Sets up the packet sending services
 DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	var device = this;
+	device.connected = true;
+
 	console.log('Configure doDisoverable', new Error().stack);
 
 	if(device.timerSend0x06) clearInterval(device.timerSend0x06);
@@ -1221,6 +1225,10 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 		device.timerSend2x29 = setInterval(function(){
 			if(device.haveSent216) device.send2x29();
 		}, 100);
+	}
+
+	if(device.onListening){
+		device.onListening();
 	}
 }
 
