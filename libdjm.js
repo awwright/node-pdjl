@@ -137,6 +137,7 @@ DJMDevice.Defaults = {
 	deviceTypeName: 'CDJ-2000nexus', // 20 bytes max, 7-bit ASCII
 	deviceType8: 0x02, // 1=DJM, 2=CDJ, 3=rekordbox
 	hardwareMode: 'cdj-2000nxs', // What kind of device to emulate
+	negotiationMode: 'cdj', // which method for finding an unused channel to use, either "cdj" or "rekordbox"
 	useBoot00a: true,
 	useBoot004: true,
 	useBeat128: false,
@@ -204,6 +205,7 @@ DJMDevice.mediaSourceMap = {
 DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	var device = this;
 	device.hardwareMode = 'djm-2000nxs';
+	device.negotiationMode = 'cdj';
 	//device.firmwareVersion = '    ';
 	device.deviceTypeName = 'DJM-2000nexus';
 	device.deviceType8 = 1;
@@ -224,6 +226,7 @@ DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	var device = this;
 	device.hardwareMode = 'cdj-2000nxs';
+	device.negotiationMode = 'cdj';
 	device.firmwareVersion = '1.25';
 	device.deviceTypeName = 'CDJ-2000nexus';
 	device.deviceType8 = 2;
@@ -242,6 +245,7 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	var device = this;
 	device.hardwareMode = 'rekordbox';
+	device.negotiationMode = 'rekordbox';
 	device.deviceTypeName = 'rekordbox';
 	device.deviceType8 = 3;
 	device.useBoot00a = false;
@@ -361,6 +365,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		device.checkNewTrackMetadata();
 	}else if(type==0x08){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+': You must change channels!');
+		if(device.on0x08) device.on0x08(msg, rinfo);
 	}else{
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 0_x'+typeStr+' Unknown type');
 	}
@@ -675,7 +680,7 @@ DJMDevice.prototype.send0x0a = function send0x0a(){
 }
 
 // 50000 0x00
-DJMDevice.prototype.send0x00 = function send0x00(i){
+DJMDevice.prototype.send0x00 = function send0x00(seq){
 	var device = this;
 	var m = MACToArr(device.macaddr);
 	var dtyp = device.deviceType8;
@@ -683,7 +688,7 @@ DJMDevice.prototype.send0x00 = function send0x00(i){
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x01, dtyp, 0x00, 0x2c, i,    x25,  m[0], m[1], m[2], m[3], m[4], m[5],
+		0x01, dtyp, 0x00, 0x2c, seq,  x25,  m[0], m[1], m[2], m[3], m[4], m[5],
 	]);
 	b.write(device.deviceTypeNameBuf(), 0x0c, 0x0c+20);
 	device.sock0.send(b, 0, b.length, 50000, device.broadcastIP, function(e){
@@ -696,11 +701,13 @@ DJMDevice.prototype.send0x00 = function send0x00(i){
 // i: an incrementing number for every packet that goes out (usually 1, 2, or 3)
 // target: IP address of mixer, if this packet is not being broadcast, or null if it is
 // channelAssignment: "auto" or "manual"
-DJMDevice.prototype.send0x02 = function send0x02(i, target){
+// chan: 0 if channelAssignment is "auto"
+DJMDevice.prototype.send0x02 = function send0x02(seq, target, chan){
 	var device = this;
-	var m = MACToArr(device.macaddr);
+	var dtyp = device.deviceType8;
 	var n = IPToArr(device.ipaddr);
-	var chan = device.channel; // `0` for Auto
+	var m = MACToArr(device.macaddr);
+	if(chan===undefined) chan = device.channel;
 	var x30 = (device.hardwareMode=='rekordbox') ? 0x04 : 0x01 ; // Rekordbox sends 0x04 for some reason
 	var x31 = 2; // 1=Auto, 2=Manual
 	// This 0x0b byte gets set to 1 if we want to get assigned a channel by the mixer
@@ -710,7 +717,7 @@ DJMDevice.prototype.send0x02 = function send0x02(i, target){
 	var b = Buffer([
 		0x51, 0x73, 0x70, 0x74, 0x31, 0x57, 0x6d, 0x4a, 0x4f, 0x4c, 0x02, bcst, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x01, 0x02, 0x00, 0x32, n[0], n[1], n[2], n[3], m[0], m[1], m[2], m[3], m[4], m[5], chan, i,
+		0x01, dtyp, 0x00, 0x32, n[0], n[1], n[2], n[3], m[0], m[1], m[2], m[3], m[4], m[5], chan, seq,
 		x30,  x31,
 	]);
 	b.write(device.deviceTypeNameBuf(), 0x0c, 0x0c+20);
@@ -1140,22 +1147,49 @@ DJMDevice.prototype.doBootup = function doBootup(){
 	}
 	function step0x02(mixerIp){
 		var seq = 1;
-		var timeout;
+		var seqx = 0;
+		var timeout = null;
+		if(device.negotiationMode=='rekordbox'){
+			var searchspace = [0x11, 0x12, 0x29, 0x2a, 0x2b, 0x2c];
+			var period = 100;
+			var seqct = 6;
+		}else{
+			var searchspace = [device.channel];
+			var period = 300;
+			var seqct = 3;
+		}
+		var searchspaceoccupied = {};
+		searchspace.forEach(function(n){ searchspaceoccupied[n] = false; });
 		device.on0x03 = function(msg, rinfo){
 			clearTimeout(timeout);
 			device.channel = msg[0x24];
 			step0x04();
 		};
+		device.on0x08 = function(msg, rinfo){
+			// TODO remove the offending channel from consideration
+		};
 		function sendNext(){
-			if(seq>3){
-				clearTimeout(timeout);
-				step0x04();
+			while(seq<=seqct){
+				// The mixer wants us to ask for a channel directly instead of a broadcast
+				var chan = searchspace[seqx++];
+				if(seqx==searchspace.length){
+					// this is what we'll end up using/testing next time
+					seqx = 0;
+					seq++;
+				}
+				// If channel was already marked occupied, skip it
+				if(searchspaceoccupied[chan]) continue;
+				// If not, ask to see if it's occupied
+				device.send0x02(seq, mixerIp, chan);
+				timeout = setTimeout(sendNext, period);
 				return;
 			}
-			// The mixer wants us to ask for a channel directly instead of a broadcast
-			device.send0x02(seq, mixerIp);
-			timeout = setTimeout(sendNext, 300);
-			seq++;
+			// If we've tested all the channels, then use the first unoccupied one
+			var goodChannels = searchspace.filter(function(c){ return !searchspaceoccupied[c]; });
+			device.channel = goodChannels[0];
+			clearTimeout(timeout);
+			step0x04();
+			return;
 		}
 		sendNext();
 	}
