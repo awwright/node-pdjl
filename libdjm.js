@@ -4,6 +4,7 @@ var net = require("net");
 
 var DBSt = module.exports.DBSt = require('./dbstruct.js');
 var DBServer = require('./dbserver.js');
+var udpProxy = require('./udpproxy.js');
 
 function TrackReference(network, channel, media, ana, id){
 	this.network = network;
@@ -123,6 +124,7 @@ DJMDevice.Defaults = {
 	sync: false,
 	broadcastIP: '192.168.0.255',
 	mixerIP: '192.168.0.90',
+	portmapperProxyTargetPort: 111,
 	//broadcastIP: '169.254.255.255',
 	//mixerIP: '169.254.101.168',
 	devices: {}, // Keeps state about devices currently on network
@@ -144,6 +146,7 @@ DJMDevice.Defaults = {
 	useBeat20a: false,
 	useBeat229: false,
 	useDbserver: false,
+	usePortmapper: false,
 	// Device configuration information
 	hostname: 'localhost',
 	// Device state information
@@ -215,6 +218,7 @@ DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	device.useBeat20a = false;
 	device.useBeat229 = false; // check this
 	device.useDbserver = false;
+	device.usePortmapper = false;
 	device.modePlayer = false;
 	device.modeMixer = true;
 	device.hasCD = false;
@@ -236,6 +240,7 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	device.useBeat20a = true;
 	device.useBeat229 = false;
 	device.useDbserver = true;
+	device.usePortmapper = false;
 	device.modePlayer = true;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -254,6 +259,7 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	device.useBeat20a = false;
 	device.useBeat229 = true;
 	device.useDbserver = true;
+	device.usePortmapper = true;
 	device.modePlayer = false;
 	device.modeMixer = false;
 	device.hasCD = false;
@@ -307,6 +313,10 @@ DJMDevice.prototype.connect = function connect() {
 		this.sockDbServer.on('listening', doneBind);
 		this.sockDbServer.on('connection', DBServer.handleDBServerConnection.bind(null, device));
 		this.sockDbServer.listen(1051);
+	}
+
+	if(device.usePortmapper){
+		udpProxy(50111, device.ipaddr, device.portmapperProxyTargetPort, '127.0.0.1');
 	}
 
 	function doneBind(){
