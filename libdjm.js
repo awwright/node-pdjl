@@ -289,10 +289,10 @@ DJMDevice.prototype.connect = function connect() {
 		});
 		sock.on("listening", function () {
 			var address = sock.address();
-			console.log("server listening " +	address.address + ":" + address.port);
+			device.log("server listening " +	address.address + ":" + address.port);
 		});
 		sock.bind(port, addr, function onBound(){
-			console.log('bound');
+			device.log('bound');
 			sock.setBroadcast(true);
 			doneBind();
 		});
@@ -321,7 +321,7 @@ DJMDevice.prototype.connect = function connect() {
 
 	function doneBind(){
 		if(--waiting===0){
-			console.log('Starting boot');
+			device.log('Starting boot');
 			if(typeof device.onConnectInit=='function') device.onConnectInit();
 			device.boot();
 		}
@@ -1213,7 +1213,7 @@ DJMDevice.prototype.doBootup = function doBootup(){
 			device.doDiscoverable();
 		};
 		function found0x05(){
-			console.log('Duplicate 0x05 response from server');
+			device.log('Duplicate 0x05 response from server');
 		}
 		function sendNext(){
 			if(seq>3){
@@ -1238,9 +1238,6 @@ DJMDevice.prototype.doBootup = function doBootup(){
 DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	var device = this;
 	device.connected = true;
-
-	console.log('Configure doDisoverable', new Error().stack);
-
 	if(device.timerSend0x06) clearInterval(device.timerSend0x06);
 	// every two seconds
 	device.timerSend0x06 = setInterval(function(){
