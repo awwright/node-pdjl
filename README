@@ -3,7 +3,6 @@ On NFS:
 Use a /etc/exports file containing something like (on Linux):
 / 0.0.0.0/0.0.0.0(insecure,insecure_locks,no_subtree_check,ro,no_root_squash)
 
-
 File listing:
 - CDJ_DJM_protocol.txt Documentation on startup sequence and general overview of the different protocols in use
 - dbserver.js Code necessary to run a TCP DBserver that runs the CDJ menu system over the network

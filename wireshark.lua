@@ -491,6 +491,12 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		subtree:add(buffer(0x34, 4), string.format("x34: %08x", buffer(0x34,4):uint() ) )
 		subtree:add(buffer(0x38, 4), string.format("x38: %08x", buffer(0x38,4):uint() ) )
 		subtree:add(buffer(0x3c, 4), string.format("x3c: %08x", buffer(0x3c,4):uint() ) )
+		subtree:add(buffer(0x40, 4), string.format("x40: %08x", buffer(0x40,4):uint() ) )
+		subtree:add(buffer(0x44, 4), string.format("x44: %08x", buffer(0x44,4):uint() ) )
+		subtree:add(buffer(0x48, 4), string.format("x48: %08x", buffer(0x48,4):uint() ) )
+		subtree:add(buffer(0x4c, 4), string.format("x4c: %08x", buffer(0x4c,4):uint() ) )
+		subtree:add(buffer(0x50, 4), string.format("x50: %08x", buffer(0x50,4):uint() ) )
+		subtree:add(buffer(0x54, 4), string.format("x54: %08x", buffer(0x54,4):uint() ) )
 		pinfo.cols.info = string.format("Load track", measure, beat)
 
 	elseif typ==0x1a then
@@ -502,6 +508,10 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		-- This is a response after "ack load track"
 		-- Probably comes up only if a track is playing and "Track Lock" is set on
 		pinfo.cols.info = string.format("Cannot load track")
+
+	elseif typ==0x1d then
+		-- I think this is sent whenever a cuepoint is modified
+		pinfo.cols.info = string.format("Cuepoint info modified")
 
 	elseif typ==0x29 then
 		-- Ports 50002

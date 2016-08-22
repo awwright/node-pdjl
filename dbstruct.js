@@ -181,7 +181,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2003": 'request album art',
 	"2004": 'request track waveform summary',
 	"2102": 'request track data',
-	"2104": 'request more track data',
+	"2104": 'request track cuepoints',
 	"2202": 'request CD track data',
 	"2204": 'request beat grid information',
 	"2504": 'request more track data 2',
@@ -195,7 +195,7 @@ var typeLabels = module.exports.typeLabels = {
 	"4402": 'track waveform summary',
 	"4502": 'track data of some sort response',
 	"4602": 'beat grid information',
-	"4702": 'FIXME no clue',
+	"4702": 'track cuepoints',
 	"4a02": 'track waveform detail 300Bps',
 };
 
@@ -1227,12 +1227,12 @@ Item4702.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x47, 0x02, [
 		new Kibble11(this.method),
 		new Kibble11(this.arg1),
-		new Kibble11(this.body3.length),
+		new Kibble11(this.body3 ? this.body3.length : 0),
 		Kibble14.blob(this.body3),
 		new Kibble11(0x24),
 		new Kibble11(this.arg5),
 		new Kibble11(this.arg6),
-		new Kibble11(this.body8.length),
+		new Kibble11(this.body8 ? this.body8.length : 0),
 		Kibble14.blob(this.body8),
 	]).toBuffer();
 }

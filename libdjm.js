@@ -187,6 +187,7 @@ DJMDevice.playStateMap = {
 	5: 'Paused',
 	6: 'Cue Stop',
 	7: 'Cue Play',
+	8: 'Cue Scratch',
 	9: 'Seeking',
 };
 
