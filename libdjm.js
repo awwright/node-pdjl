@@ -146,6 +146,7 @@ DJMDevice.Defaults = {
 	useBeat20a: false,
 	useBeat229: false,
 	useDbserver: false,
+	useDbclient: false,
 	usePortmapper: false,
 	// Device configuration information
 	hostname: 'localhost',
@@ -220,6 +221,7 @@ DJMDevice.prototype.setConfigurePassive = function setConfigurePassive() {
 	device.useBeat20a = false;
 	device.useBeat229 = false;
 	device.useDbserver = false;
+	device.useDbclient = false;
 	device.usePortmapper = false;
 	device.modePlayer = false;
 	device.modeMixer = false;
@@ -245,6 +247,7 @@ DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	device.useBeat20a = false;
 	device.useBeat229 = false; // check this
 	device.useDbserver = false;
+	device.useDbclient = false;
 	device.usePortmapper = false;
 	device.modePlayer = false;
 	device.modeMixer = true;
@@ -270,6 +273,7 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	device.useBeat20a = true;
 	device.useBeat229 = false;
 	device.useDbserver = true;
+	device.useDbclient = true;
 	device.usePortmapper = false;
 	device.modePlayer = true;
 	device.modeMixer = false;
@@ -292,6 +296,7 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	device.useBeat20a = false;
 	device.useBeat229 = true;
 	device.useDbserver = true;
+	device.useDbclient = false;
 	device.usePortmapper = true;
 	device.modePlayer = false;
 	device.modeMixer = false;
@@ -625,7 +630,9 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 				device.onMsg2(udp4_payload, rinfo);
 			}
 		}else{
-			throw new Error('Unknown IPv4 protocol 0x'+ipv4_proto.toString(16));
+			//console.log(ethpayload.toString('hex'));
+			//throw new Error('Unknown IPv4 protocol 0x'+ipv4_proto.toString(16));
+			console.log('Unknown IPv4 protocol 0x'+ipv4_proto.toString(16));
 		}
 	}else if(ethertype==0x0806){
 		// ARP, ignore
@@ -661,6 +668,7 @@ DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 	var device = this;
 	var articles = [
 		function requestMetadata(remote, cb){
+			if(!device.useDbclient) return void cb();
 			if(!device.onTrackChangeMetadata) return void cb();
 			remote.track.getMetadata(function(err, meta){
 				remote.trackMetadata = meta;
@@ -669,6 +677,7 @@ DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 			});
 		},
 		function requestBeatgrid(remote, cb){
+			if(!device.useDbclient) return void cb();
 			if(!device.onTrackChangeBeatgrid) return void cb();
 			remote.track.getBeatgrid(function(err, meta){
 				remote.trackBeatgrid = meta;
@@ -695,6 +704,7 @@ DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 }
 
 DJMDevice.prototype.sendDBSQuery = function sendDBSQuery(chan, request, callback){
+	if(!this.useDbclient) throw new Error('useDbclient disabled');
 	this.getDBSSocket(chan, function(err, sock){
 		sock.issueRequest(request, callback);
 	});
