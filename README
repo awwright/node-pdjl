@@ -15,5 +15,7 @@ File listing:
 - wireshark.lua Formats and parses UDP packets
 
 Todo:
+- Test passive listening mode
+- Parse incoming TZSP packets, use https://github.com/mmaraya/port-mirroring to generate them
 - Emulate DJM
 - Emulate DJM that has a live sampler sample ready

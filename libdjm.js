@@ -206,6 +206,29 @@ DJMDevice.mediaSourceMap = {
 
 
 
+DJMDevice.prototype.setConfigurePassive = function setConfigurePassive() {
+	// In passive mode, we listen to the network for incoming packets without emiting anything
+	// Based on the packets, we emit callbacks and keep track of the network state
+	var device = this;
+	device.hardwareMode = 'passive';
+	device.usePDJL50000 = false;
+	device.usePDJL50001 = false;
+	device.usePDJL50002 = false;
+	device.useBoot00a = false;
+	device.useBoot004 = false;
+	device.useBeat128 = false;
+	device.useBeat20a = false;
+	device.useBeat229 = false;
+	device.useDbserver = false;
+	device.usePortmapper = false;
+	device.modePlayer = false;
+	device.modeMixer = false;
+	device.hasCD = false;
+	device.hasSD = false;
+	device.hasUSB = false;
+	// This does have some sort of file it can offer over the network
+	// But need to create an option to expose it/figure out how it's exposed
+}
 DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	var device = this;
 	device.hardwareMode = 'djm-2000nxs';
@@ -213,6 +236,9 @@ DJMDevice.prototype.setConfigureDJM2000NXS = function setConfigureDJM2000NXS() {
 	//device.firmwareVersion = '    ';
 	device.deviceTypeName = 'DJM-2000nexus';
 	device.deviceType8 = 1;
+	device.usePDJL50000 = true;
+	device.usePDJL50001 = true;
+	device.usePDJL50002 = true; // check these
 	device.useBoot00a = true;
 	device.useBoot004 = true;
 	device.useBeat128 = false;
@@ -235,6 +261,9 @@ DJMDevice.prototype.setConfigureCDJ2000NXS = function configureCDJ2000NXS() {
 	device.firmwareVersion = '1.25';
 	device.deviceTypeName = 'CDJ-2000nexus';
 	device.deviceType8 = 2;
+	device.usePDJL50000 = true;
+	device.usePDJL50001 = true;
+	device.usePDJL50002 = true;
 	device.useBoot00a = true;
 	device.useBoot004 = true;
 	device.useBeat128 = true;
@@ -254,6 +283,9 @@ DJMDevice.prototype.setConfigureRekordbox = function configureRekordbox() {
 	device.negotiationMode = 'rekordbox';
 	device.deviceTypeName = 'rekordbox';
 	device.deviceType8 = 3;
+	device.usePDJL50000 = true;
+	device.usePDJL50001 = true;
+	device.usePDJL50002 = true; // check these
 	device.useBoot00a = false;
 	device.useBoot004 = false;
 	device.useBeat128 = false;
@@ -301,12 +333,21 @@ DJMDevice.prototype.connect = function connect() {
 		return sock;
 	}
 
-	device.sock0 = listenUDP(device.ipaddr, 50000, device.onMsg0.bind(device));
-	device.sock0b = listenUDP(device.broadcastIP, 50000, device.onMsg0.bind(device));
-	device.sock1 = listenUDP(device.ipaddr, 50001, device.onMsg1.bind(device));
-	device.sock1b = listenUDP(device.broadcastIP, 50001, device.onMsg1.bind(device));
-	device.sock2 = listenUDP(device.ipaddr, 50002, device.onMsg2.bind(device));
-	device.sock2b = listenUDP(device.broadcastIP, 50002, device.onMsg2.bind(device));
+	if(device.usePDJL50000){
+		device.sock0 = listenUDP(device.ipaddr, 50000, device.onMsg0.bind(device));
+		device.sock0b = listenUDP(device.broadcastIP, 50000, device.onMsg0.bind(device));
+	}
+	if(device.usePDJL50001){
+		device.sock1 = listenUDP(device.ipaddr, 50001, device.onMsg1.bind(device));
+		device.sock1b = listenUDP(device.broadcastIP, 50001, device.onMsg1.bind(device));
+	}
+	if(device.usePDJL50002){
+		device.sock2 = listenUDP(device.ipaddr, 50002, device.onMsg2.bind(device));
+		device.sock2b = listenUDP(device.broadcastIP, 50002, device.onMsg2.bind(device));
+	}
+	if(device.useTZSPServer){
+		device.tzspd = listenUDP('0.0.0.0', 37008, device.onTZSPPacket.bind(device));
+	}
 
 	if(device.useDbserver){
 		waiting++;
@@ -324,7 +365,7 @@ DJMDevice.prototype.connect = function connect() {
 		if(--waiting===0){
 			device.log('Starting boot');
 			if(typeof device.onConnectInit=='function') device.onConnectInit();
-			device.boot();
+			if(device.usePDJL50000) device.boot();
 		}
 	}
 }
@@ -514,6 +555,32 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	}else{
 		device.log('< '+rinfo.address + ":" + rinfo.port+' Unknown type 2_x'+typeStr);
 	}
+}
+
+DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
+	// First check the TZSP metadata
+	if(msg[0]!==1) throw new Error('TZSP packet must be version 1');
+	if(msg.readUInt16BE(2)!==1) throw new Error('TZSP packet must be Ethernet');
+	for(var i=4; ; i++){
+		var tagtype = msg[i];
+		if(tagtype==0x00){
+			i += 1;
+			// padding, ignore
+			continue;
+		}
+		if(tagtype==0x01){
+			i += 1;
+			// Marks last tag, break out of loop
+			break;
+		}
+		throw new Error('Unknown TZSP tag type '+msg[i]);
+	}
+	var eth_msg = msg.slice(i);
+	// Got our ethernet frame data, now figure it all out
+	var mac_src = eth_msg.slice(0,6);
+	var mac_dst = eth_msg.slice(6,12);
+	console.log(mac_src, mac_dst);
+	console.log(eth_msg);
 }
 
 DJMDevice.prototype.log = function log(){
