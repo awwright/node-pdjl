@@ -558,6 +558,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 }
 
 DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
+	var device = this;
 	// First check the TZSP metadata
 	if(msg[0]!==1) throw new Error('TZSP packet must be version 1');
 	if(msg.readUInt16BE(2)!==1) throw new Error('TZSP packet must be Ethernet');
@@ -579,8 +580,48 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 	// Got our ethernet frame data, now figure it all out
 	var mac_src = eth_msg.slice(0,6);
 	var mac_dst = eth_msg.slice(6,12);
-	console.log(mac_src, mac_dst);
-	console.log(eth_msg);
+	// For now we ignore the possibility for an 802.1Q tag, that's not going to happen in our environment
+	var ethertype = eth_msg.readUInt16BE(12);
+	var ethpayload = eth_msg.slice(14);
+	if(ethertype==0x0800){
+		var ipv4_version = (ethpayload[0] & 0b11110000) >> 4;
+		var ipv4_hsize = (ethpayload[0] & 0b00001111) << 2;
+		if(ipv4_version!==4) throw new Error('Bad ipv4 header');
+		var ipv4_length = ethpayload.readUInt16BE(2);
+		var ipv4_proto = ethpayload.readUInt8(9);
+		var ipv4_src = ethpayload.slice(12, 16);
+		var ipv4_dst = ethpayload.slice(16, 20);
+		var ipv4_payload = ethpayload.slice(ipv4_hsize, ipv4_length);
+		if(ipv4_proto==0x01){
+			// ICMP
+		}else if(ipv4_proto==0x06){
+			// TCP
+		}else if(ipv4_proto==0x11){
+			// UDP
+			var udp4_src = ipv4_payload.readUInt16BE(0);
+			var udp4_dst = ipv4_payload.readUInt16BE(2);
+			var udp4_len = ipv4_payload.readUInt16BE(4);
+			var udp4_chk = ipv4_payload.readUInt16BE(6);
+			var udp4_payload = ipv4_payload.slice(8);
+			console.log('udp4', Array.prototype.slice.call(ipv4_src).join('.')+':'+udp4_src, Array.prototype.slice.call(ipv4_dst).join('.')+':'+udp4_dst, ipv4_proto.toString(16), udp4_payload);
+			var rinfo = {
+				length: udp4_len,
+				family: 'ipv4',
+				port: udp4_dst,
+			};
+			if(udp4_dst===50000){
+				device.onMsg0(udp4_payload, rinfo);
+			}
+		}else{
+			throw new Error('Unknown IPv4 protocol 0x'+ipv4_proto.toString(16));
+		}
+	}else if(ethertype==0x0806){
+		// ARP, ignore
+	}else if(ethertype==0x86DD){
+		// IPv6, ignore
+	}else{
+		throw new Error('Unknown Ethertype 0x'+ethertype.toString(16));
+	}
 }
 
 DJMDevice.prototype.log = function log(){
