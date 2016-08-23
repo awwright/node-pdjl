@@ -596,6 +596,13 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			// ICMP
 		}else if(ipv4_proto==0x06){
 			// TCP
+			var tcp4_src = ipv4_payload.readUInt16BE(0);
+			var tcp4_dst = ipv4_payload.readUInt16BE(2);
+			var tcp4_seq = ipv4_payload.readUInt32BE(4);
+			var tcp4_ack = ipv4_payload.readUInt32BE(8);
+			var tcp4_hlen = (ipv4_payload[12] & 0b11110000) >> 2;
+			var tcp4_payload = ipv4_payload.slice(tcp4_hlen);
+			console.log('tcp4', Array.prototype.slice.call(ipv4_src).join('.')+':'+tcp4_src, Array.prototype.slice.call(ipv4_dst).join('.')+':'+tcp4_dst, ipv4_proto.toString(16));
 		}else if(ipv4_proto==0x11){
 			// UDP
 			var udp4_src = ipv4_payload.readUInt16BE(0);
@@ -603,14 +610,19 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			var udp4_len = ipv4_payload.readUInt16BE(4);
 			var udp4_chk = ipv4_payload.readUInt16BE(6);
 			var udp4_payload = ipv4_payload.slice(8);
-			console.log('udp4', Array.prototype.slice.call(ipv4_src).join('.')+':'+udp4_src, Array.prototype.slice.call(ipv4_dst).join('.')+':'+udp4_dst, ipv4_proto.toString(16), udp4_payload);
 			var rinfo = {
 				length: udp4_len,
 				family: 'ipv4',
+				address: Array.prototype.slice.call(ipv4_src).join('.'),
 				port: udp4_dst,
 			};
+			console.log('udp4', Array.prototype.slice.call(ipv4_src).join('.')+':'+udp4_src, Array.prototype.slice.call(ipv4_dst).join('.')+':'+udp4_dst, ipv4_proto.toString(16));
 			if(udp4_dst===50000){
 				device.onMsg0(udp4_payload, rinfo);
+			}else if(udp4_dst===50001){
+				device.onMsg1(udp4_payload, rinfo);
+			}else if(udp4_dst===50002){
+				device.onMsg2(udp4_payload, rinfo);
 			}
 		}else{
 			throw new Error('Unknown IPv4 protocol 0x'+ipv4_proto.toString(16));
