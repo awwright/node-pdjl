@@ -397,7 +397,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		if(msg[0x23]==0x21){
 			device.mixerIP = rinfo.address;
 		}
-		device.sendDeviceAck(rinfo.address);
+		if(device.usePDJL50000) device.sendDeviceAck(rinfo.address);
 	}else if(type==0x06){
 		var emitDeviceChange = false;
 		var chan = msg[0x24];
@@ -446,14 +446,14 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		}else if(a==0x01 || a==0x02){
 			device.log('< 1_x2a Become master!');
 			device.handleNewMaster(device.channel);
-			device.send1x26(rinfo.address);
+			if(device.usePDJL50001) device.send1x26(rinfo.address);
 		}else{
 			device.log(' 1_x2b Unknown sync assignment???', a);
 		}
 	}else if(type==0x26){
 		device.log('< 1_x26 Acknowledge new master');
 		device.handleNewMaster(msg[0x27]);
-		device.send1x27(rinfo.address);
+		if(device.usePDJL50001) device.send1x27(rinfo.address);
 	}else if(type==0x28){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x'+typeStr);
 		var data = {
@@ -535,12 +535,13 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			sizeMB: 10000,
 			freeMB: 4000,
 		};
-		device.send2x06(rinfo.address, response);
+		if(device.on2x06) device.on2x06(query);
+		if(device.usePDJL50002) device.send2x06(rinfo.address, response);
 	}else if(type==0x10){
 		// A rekordbox-specific packet it looks like, send 2_11
 		setTimeout(function(){
-			device.send2x11(rinfo.address);
-			device.send2x16(rinfo.address);
+			if(device.usePDJL50002) device.send2x11(rinfo.address);
+			if(device.usePDJL50002) device.send2x16(rinfo.address);
 			device.haveSent216 = true;
 		}, 200);
 		setTimeout(function(){
@@ -1131,7 +1132,7 @@ DJMDevice.prototype.send1x28 = function send1x28(i){
 	});
 }
 
-DJMDevice.prototype.send2x06 = function send2x11(ip, data){
+DJMDevice.prototype.send2x06 = function send2x06(ip, data){
 	// 50002 0x11
 	// The CDJ will send its first portmap request to rekordbox in response to this packet
 	var device = this;

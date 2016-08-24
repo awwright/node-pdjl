@@ -186,7 +186,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2204": 'request beat grid information',
 	"2504": 'request more track data 2',
 	"3000": 'render menu',
-	"3e03": 'inquire about a track from another device',
+	"3e03": 'inquire USB information',
 	"4000": 'response',
 	"4001": 'render menu (header)',
 	"4002": 'album art',
@@ -210,16 +210,6 @@ function parseKibble(data){
 	var KibbleStruct = module.exports.Kibble[typeHex];
 	if(!KibbleStruct) throw new Error('Unknown kibble type '+typeHex);
 	return new KibbleStruct(data);
-}
-
-function parseBiscut(data){
-	var parts = [];
-	for(var i=0; data[i]>=0;){
-		var info = parseKibble(data.slice(i));
-		parts.push(info);
-		i += info.length;
-	}
-	return parts;
 }
 
 // A 32-bit number or blob when used as a header
