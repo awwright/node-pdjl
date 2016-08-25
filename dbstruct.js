@@ -332,6 +332,7 @@ Kibble26.string = function(b){
 
 var mapItem = module.exports.mapItem = {
 	"10": Item10,
+	"1000": Item1000,
 	"11": Item11,
 	"14": Item14,
 	"20": Item20,
@@ -508,6 +509,34 @@ ItemSup.prototype.toBuffer = function toBuffer(){
 }
 
 
+module.exports.Item1000 = Item1000;
+function Item1000(data){
+	// Request the main menu for a particular mount/device/media
+	this.method = 0x10;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.listing = message.b;
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
+		this.sortOrder = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data[n];
+	}
+	this.length = 0x20 + 5 + 5 + 5;
+}
+Item1000.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x10, this.listing, [
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
+		new Kibble11(this.sortOrder),
+		new Kibble11(0x00ffffff),
+	]);
+	return b.toBuffer();
+}
+
 module.exports.Item10 = Item10;
 function Item10(data){
 	// This also seems to come in a number of different lengths
@@ -526,27 +555,27 @@ function Item10(data){
 	// - Loading Artist submenu length=0x2a
 	// TODO this should consume only as many bytes as the item actually takes up
 	// The `length` property specifies how many bytes were actually parsed
-	if(data instanceof Buffer){
-		this.length = data.length;
-		this.method = 0x10;
-		this.listing = data[0x0c];
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
-		this.affectedMenu = data[0x22];
-		this.submenuItems = data[0x16]; // Seems to be set to 0x06 if the request is a submenu
-		this.playlist = 0; // undefined
-		this.sortOrder = data[0x29]; // undefined
+	this.method = 0x10;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.listing = message.b;
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
+		this.sortOrder = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
 	}
+	this.length = 0x20 + 5 + 5;
 }
 Item10.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x10, this.listing, [
-		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.sortOrder),
 	]);
-	if(this.listing==0){
-		b.args.push(new Kibble11(0x00ffffff));
-	}
 	return b.toBuffer();
 }
 
@@ -614,7 +643,10 @@ function Item20(data){
 		console.log(data.slice(0x10));
 		this.m2 = data[0x16];
 		this.requestId = (data[0x08]<<8) + (data[0x09]);
-		this.affectedMenu = data[0x22];
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 		this.resourceId = (data[0x28]<<8) + (data[0x29]);
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -622,7 +654,7 @@ function Item20(data){
 }
 Item20.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x20, this.listing, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.resourceId),
 		new Kibble11(1),
 	]);

@@ -536,7 +536,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			freeMB: 4000,
 		};
 		if(device.on2x06) device.on2x06(query);
-		if(device.usePDJL50002) device.send2x06(rinfo.address, response);
+		if(device.usePDJL50002 && !rinfo.dst) device.send2x06(rinfo.address, response);
 	}else if(type==0x10){
 		// A rekordbox-specific packet it looks like, send 2_11
 		setTimeout(function(){
