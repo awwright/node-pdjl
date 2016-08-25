@@ -596,19 +596,79 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 		var ipv4_length = ethpayload.readUInt16BE(2);
 		var ipv4_proto = ethpayload.readUInt8(9);
 		var ipv4_src = ethpayload.slice(12, 16);
+		var ipv4_srcstr = Array.prototype.slice.call(ipv4_src).join('.');
 		var ipv4_dst = ethpayload.slice(16, 20);
+		var ipv4_dststr = Array.prototype.slice.call(ipv4_dst).join('.');
 		var ipv4_payload = ethpayload.slice(ipv4_hsize, ipv4_length);
 		if(ipv4_proto==0x01){
 			// ICMP
 		}else if(ipv4_proto==0x06){
 			// TCP
+			device.tcp_sessions = device.tcp_sessions || {};
 			var tcp4_src = ipv4_payload.readUInt16BE(0);
 			var tcp4_dst = ipv4_payload.readUInt16BE(2);
 			var tcp4_seq = ipv4_payload.readUInt32BE(4);
 			var tcp4_ack = ipv4_payload.readUInt32BE(8);
 			var tcp4_hlen = (ipv4_payload[12] & 0b11110000) >> 2;
+			var tcp4_opt = ipv4_payload.readUInt16BE(12) & 0b0000111111111111;
+			var tcp4_sessionid = ipv4_srcstr+':'+tcp4_src+' '+ipv4_dststr+':'+tcp4_dst;
+			var tcp4_sessionid_rev = ipv4_dststr+':'+tcp4_dst+' '+ipv4_srcstr+':'+tcp4_src;
+			if(tcp4_opt & 2){
+				// SYN time, first packet of connection
+				var session = device.tcp_sessions[tcp4_sessionid] = device.tcp_sessions[tcp4_sessionid] || {};
+				session.buffer = new Buffer([]);
+				session.fragments = {};
+				session.window = tcp4_seq + 1; // Indicates what byte offset session.buffer leaves off at
+				if(tcp4_opt & 16){
+					// Server replies with ACK
+					session.serverid = tcp4_sessionid;
+					session.clientid = tcp4_sessionid_rev;
+					session.client = device.tcp_sessions[tcp4_sessionid_rev];
+					device.tcp_sessions[tcp4_sessionid_rev].server = tcp4_sessionid_rev;
+				}else{
+					// Else this is a client
+					session.clientid = tcp4_sessionid;
+					session.serverid = tcp4_sessionid_rev;
+				}
+				session.address = ipv4_src;
+				session.port = tcp4_src;
+				console.log('SYN');
+			}else{
+				var session = device.tcp_sessions[tcp4_sessionid];
+			}
+			if(!session){
+				console.log('Unknown session '+tcp4_sessionid);
+				return;
+			}
+			var serversess = session.server || session;
 			var tcp4_payload = ipv4_payload.slice(tcp4_hlen);
-			console.log('tcp4', Array.prototype.slice.call(ipv4_src).join('.')+':'+tcp4_src, Array.prototype.slice.call(ipv4_dst).join('.')+':'+tcp4_dst, ipv4_proto.toString(16));
+			if(tcp4_payload){
+				session.fragments[tcp4_seq] = tcp4_payload;
+				// append fragments onto the parsed data buffer
+				var keys = Object.keys(session.fragments).map(function(v){return parseInt(v);}).sort(function(a,b){return a-b;});
+				keys.forEach(function(k){
+					if(k<session.window && k>session.window-(1<<30)){
+						delete session.fragments[k];
+						return;
+					}else if(k==session.window){
+						session.buffer = Buffer.concat([session.buffer, session.fragments[k]]);
+						session.window = (session.window + session.fragments[k].length) & 0xffffffff;
+						delete session.fragments[k];
+						return;
+					}
+				});
+			}
+			if(serversess.port==1051){
+				console.log('dbserver', ipv4_srcstr, ipv4_dststr, tcp4_payload);
+				try{console.log(DBSt.formatBuf(tcp4_payload));}catch(e){}
+				for(var message; message = DBSt.parseMessage(session.buffer);){
+					console.log(message);
+					session.buffer = session.buffer.slice(message.length);
+					if(!session.buffer.length) break;
+				}
+			}else{
+				console.log('tcp4', ipv4_srcstr+':'+tcp4_src, ipv4_dststr+':'+tcp4_dst, ipv4_proto.toString(16), tcp4_payload);
+			}
 		}else if(ipv4_proto==0x11){
 			// UDP
 			var udp4_src = ipv4_payload.readUInt16BE(0);
@@ -617,12 +677,12 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			var udp4_chk = ipv4_payload.readUInt16BE(6);
 			var udp4_payload = ipv4_payload.slice(8);
 			var rinfo = {
-				length: udp4_len,
-				family: 'ipv4',
-				address: Array.prototype.slice.call(ipv4_src).join('.'),
-				port: udp4_dst,
+				size: udp4_len,
+				family: 'IPv4',
+				address: ipv4_srcstr,
+				port: udp4_src,
 			};
-			console.log('udp4', Array.prototype.slice.call(ipv4_src).join('.')+':'+udp4_src, Array.prototype.slice.call(ipv4_dst).join('.')+':'+udp4_dst, ipv4_proto.toString(16));
+			//console.log('udp4', ipv4_srcstr+':'+udp4_src, ipv4_dststr+':'+udp4_dst, ipv4_proto.toString(16));
 			if(udp4_dst===50000){
 				device.onMsg0(udp4_payload, rinfo);
 			}else if(udp4_dst===50001){
