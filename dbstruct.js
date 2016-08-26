@@ -407,7 +407,6 @@ function parseMessage(data){
 	}
 	// Maybe it's a Hello or Sup
 	if(info1.uint==0xfffffffe){
-		console.log('info1/info2', info1, info2);
 		if(info2.a===0 && info2.b===0){
 				return new ItemHello(data);
 		}else if(info2.a===0x40 && info2.b===0){
@@ -446,7 +445,7 @@ module.exports.parseItem = parseItem;
 function parseItem(message, data){
 	var ItemStruct = mapItem[((message.a<<8)|(message.b)).toString(16)] || mapItem[message.a.toString(16)];
 	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
-	var item = new ItemStruct(data);
+	var item = new ItemStruct(message);
 	assertParsed(data.slice(0,item.length), item);
 	return item;
 }
@@ -599,20 +598,25 @@ Item10.prototype.toBuffer = function toBuffer(){
 
 module.exports.Item11 = Item11;
 function Item11(data){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	// This form seems to be called for:
 	// - Requesting root playlist (length=0x34)
 	// leng bx0c bx0e Description
 	// 0x2f 0x03 0x03 Requesting particular artist submenu
-	if(data instanceof Buffer){
+	if(message instanceof Item){
 		// Leng _x16 _x17 _x33
 		// 0x34 0x06 0x06 0x00
 		// 0x34 0x06 0x06 0x01 (returns main track listing)
 		//this.length = data[0x33] ? 0x34 : 0x2f;
 		this.length = 0x34;
 		this.method = 0x11;
-		this.requestId = (data[0x08]<<8) | (data[0x09]);
-		this.affectedMenu = data[0x22];
-		this.playlist = (data[0x2d]<<8) | data[0x2e];
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
+		this.playlist = message.args[2].uint;
 		this._x33 = data[0x33];
 	}else{
 		for(var n in data) this[n]=data[n];
@@ -620,7 +624,7 @@ function Item11(data){
 }
 Item11.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x11, 0x05, [
-		new Kibble11(0x03000401 | (this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(0),
 		new Kibble11(this.playlist),
 	]);
@@ -634,17 +638,20 @@ Item11.prototype.toBuffer = function toBuffer(){
 module.exports.Item14 = Item14;
 function Item14(data){
 	if(data instanceof Buffer){
-		this.length = data.length;
 		this.method = 0x14;
-		this.requestId = (data[0x08]<<8) | (data[0x09]);
-		this.affectedMenu = data[0x22];
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
 	}else{
 		for(var n in data) this[n]=data[n];
 	}
+	this.length = 0x20 + 5*3;
 }
 Item14.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x14, 0x00, [
-		new Kibble11(0x03000401|(this.affectedMenu<<16)),
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(0),
 		new Kibble11(0x1004),
 	]).toBuffer();
@@ -654,18 +661,17 @@ Item14.prototype.toBuffer = function toBuffer(){
 // For album art request see Item2003
 module.exports.Item20 = Item20;
 function Item20(data){
-	if(data instanceof Buffer){
-		this.length = data.length;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.requestId = message.requestId;
 		this.method = 0x20;
-		this.listing = data[0x0c];
-		console.log(data.slice(0x10));
-		this.m2 = data[0x16];
-		this.requestId = (data[0x08]<<8) + (data[0x09]);
+		this.listing = message.b;
 		this.clientChannel = message.args[0].data[0];
 		this.affectedMenu = message.args[0].data[1];
 		this.sourceMedia = message.args[0].data[2];
 		this.sourceAnalyzed = message.args[0].data[3];
-		this.resourceId = (data[0x28]<<8) + (data[0x29]);
+		this.resourceId = message.args[1].uint;
 	}else{
 		for(var n in data) this[n]=data[n];
 	}
@@ -960,7 +966,7 @@ function Item31(data){
 	this.method = 0x31;
 	this.length = data.length;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.clientChannel = message.args[0].data[0];
@@ -1014,16 +1020,15 @@ module.exports.Item4000 = Item4000;
 function Item4000(data, aaaa, len){
 	this.length = 0x2a;
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.requestType = message.args[0].uint;
 		this.itemCount = message.args[1].uint;
-	}else if(typeof r=='object'){
-		var data = r;
+	}else if(typeof data=='object'){
 		for(var n in data) this[n]=data[n];
 	}else{
-		this.requestId = r;
+		this.requestId = data;
 		this.requestType = aaaa;
 		this.itemCount = len;
 	}
@@ -1038,19 +1043,18 @@ Item4000.prototype.toBuffer = function toBuffer(){
 
 // Response with attached menu items packet
 module.exports.Item4001 = Item4001;
-function Item4001(r, aaaa){
+function Item4001(data){
 	this.length = 0x2a;
-	if(r instanceof Buffer) var message = parseMessage(r);
-	else if (r instanceof Item) var message = requestId;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.opt0 = message.args[0].uint; // Usually 0, seems to be 1 if from [Info] menu
 		this.opt1 = message.args[1].uint;
 	}else if(typeof r=='object'){
-		var data = r;
 		for(var n in data) this[n]=data[n];
 	}else{
-		this.requestId = r;
+		this.requestId = data;
 		this.opt1 = 0;
 	}
 }
@@ -1089,18 +1093,13 @@ Item4002.prototype.toBuffer = function toBuffer(){
 }
 
 module.exports.Item41 = Item41;
-function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
-	if(requestId instanceof Buffer){
-		var message = parseMessage(requestId);
-	}else if (requestId instanceof Item){
-		var message = requestId;
-	}
+function Item41(data, symbol, numeric, label, symbol2, numeric2, label2){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.length = message.length;
-		var data = requestId;
 		// collect data
 		this.requestId = message.requestId;
-		this._x22 = data[0x22]; // Normally 0x00, 0x3e if the field is describing the NFS filepath
 		this.numeric2 = message.args[0].uint;
 		this.numeric = message.args[1].uint;
 		// argument 2 is byte length of argument 3
@@ -1114,11 +1113,10 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 		this.opt9 = message.args[9].uint;
 		this.opta = message.args[10].uint;
 		this.optb = message.args[11].uint;
-	}else if(typeof requestId=='object'){
-		var data = requestId;
+	}else if(typeof data=='object'){
 		for(var n in data) this[n]=data[n];
 	}else{
-		this.requestId = requestId;
+		this.requestId = data;
 		this.symbol = symbol;
 		this.numeric = numeric;
 		this.label = label;
@@ -1135,7 +1133,7 @@ function Item41(requestId, symbol, numeric, label, symbol2, numeric2, label2){
 }
 Item41.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x41, 0x01, [
-		new Kibble11((this._x22<<16) | this.numeric2),
+		new Kibble11(this.numeric2),
 		new Kibble11(this.numeric),
 		new Kibble11(this.label.length*2 + 2),
 		Kibble26.string(this.label),
@@ -1153,16 +1151,15 @@ Item41.prototype.toBuffer = function toBuffer(){
 }
 
 module.exports.Item4402 = Item4402;
-function Item4402(requestId){
-	if(requestId instanceof Buffer) var message = parseMessage(requestId);
-	else if (requestId instanceof Item) var message = requestId;
+function Item4402(data){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.length = message.length;
 		this.method = message.args[0].uint;
 		this.body = message.args[3].data;
-	}else if(typeof requestId=='object'){
-		var data = requestId;
+	}else if(typeof data=='object'){
 		for(var n in data) this[n]=data[n];
 	}
 }
@@ -1179,16 +1176,16 @@ Item4402.prototype.toBuffer = function toBuffer(){
 // Seems to be a blob of something?
 // Mostly zeros
 module.exports.Item4502 = Item4502;
-function Item4502(requestId){
-	if(requestId instanceof Buffer) var message = parseMessage(requestId);
-	else if (requestId instanceof Item) var message = requestId;
+function Item4502(data){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.length = message.length;
 		this.method = message.args[0].uint;
 		this.body = message.args[3].data;
-	}else if(typeof requestId=='object'){
-		var data = requestId;
+	}else if(typeof data=='object'){
+		var data = data;
 		for(var n in data) this[n]=data[n];
 	}
 }
@@ -1204,14 +1201,16 @@ Item4502.prototype.toBuffer = function toBuffer(){
 
 module.exports.Item42 = Item42;
 function Item42(data){
-	this.length = 0x20;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(data instanceof Buffer){
-		this.requestId = (data[8]<<8) + (data[9]);
+		this.requestId = message.requestId;
 	}else if(typeof data=='object'){
 		this.requestId = data.requestId;
 	}else{
 		this.requestId = data;
 	}
+	this.length = 0x20;
 }
 Item42.prototype.toBuffer = function toBuffer(){
 	return new Item(this.requestId, 0x42, 0x01, []).toBuffer();
@@ -1219,16 +1218,15 @@ Item42.prototype.toBuffer = function toBuffer(){
 
 // Sent in response to 0x2204
 module.exports.Item4602 = Item4602;
-function Item4602(requestId){
-	if(requestId instanceof Buffer) var message = parseMessage(requestId);
-	else if (requestId instanceof Item) var message = requestId;
+function Item4602(data){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.length = message.length;
 		this.method = message.args[0].uint;
 		this.body = message.args[3].data;
-	}else if(typeof requestId=='object'){
-		var data = requestId;
+	}else if(typeof data=='object'){
 		for(var n in data) this[n]=data[n];
 	}
 }
@@ -1246,7 +1244,7 @@ Item4602.prototype.toBuffer = function toBuffer(){
 module.exports.Item4702 = Item4702;
 function Item4702(data){
 	if(data instanceof Buffer) var message = parseMessage(data);
-	else if (data instanceof Item) var message = requestId;
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.method = message.args[0].uint;
@@ -1287,16 +1285,15 @@ Item4702.prototype.toBuffer = function toBuffer(){
 
 // Sent in response to 0x2904
 module.exports.Item4a02 = Item4a02;
-function Item4a02(requestId){
-	if(requestId instanceof Buffer) var message = parseMessage(requestId);
-	else if (requestId instanceof Item) var message = requestId;
+function Item4a02(data){
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
 	if(message instanceof Item){
 		this.requestId = message.requestId;
 		this.length = message.length;
 		this.method = message.args[0].uint;
 		this.body = message.args[3].data;
-	}else if(typeof requestId=='object'){
-		var data = requestId;
+	}else if(typeof data=='object'){
 		for(var n in data) this[n]=data[n];
 	}
 }
