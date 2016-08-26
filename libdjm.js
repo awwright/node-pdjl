@@ -653,7 +653,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 					session.serverid = tcp4_sessionid;
 					session.clientid = tcp4_sessionid_rev;
 					session.client = device.tcp_sessions[tcp4_sessionid_rev];
-					device.tcp_sessions[tcp4_sessionid_rev].server = tcp4_sessionid_rev;
+					session.client.server = tcp4_sessionid_rev;
 				}else{
 					// Else this is a client
 					session.clientid = tcp4_sessionid;
@@ -667,11 +667,16 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			}
 			if(!session){
 				console.log('Unknown session '+tcp4_sessionid);
-				return;
-			}
+				var session = device.tcp_sessions[tcp4_sessionid] = device.tcp_sessions[tcp4_sessionid] || {};
+				session.buffer = new Buffer([]);
+				session.fragments = {};
+			} 
 			var serversess = session.server || session;
 			var tcp4_payload = ipv4_payload.slice(tcp4_hlen);
-			if(tcp4_payload){
+			if(tcp4_payload.length){
+				if(session.window===undefined){
+					session.window = tcp4_seq;
+				}
 				session.fragments[tcp4_seq] = tcp4_payload;
 				// append fragments onto the parsed data buffer
 				var keys = Object.keys(session.fragments).map(function(v){return parseInt(v);}).sort(function(a,b){return a-b;});
@@ -686,17 +691,33 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 						return;
 					}
 				});
-			}
-			if(serversess.port==1051){
-				console.log('dbserver', ipv4_srcstr, ipv4_dststr, tcp4_payload);
-				try{console.log(DBSt.formatBuf(tcp4_payload));}catch(e){}
-				for(var message; message = DBSt.parseMessage(session.buffer);){
-					console.log(message);
-					session.buffer = session.buffer.slice(message.length);
-					if(!session.buffer.length) break;
+				if(serversess.port==1051){
+					//console.log('dbserver', ipv4_srcstr, ipv4_dststr, tcp4_payload);
+					//try{console.log(DBSt.formatBuf(tcp4_payload));}catch(e){}
+
+					// TODO if the buffer has been sitting for more than ~5 seconds,
+					// then look for the next magic header and skip to that to try to re-sync
+					session.lastDataDate = new Date;
+					for(var message; message = DBSt.parseMessage(session.buffer);){
+						session.lastSyncDate = new Date;
+						if(message instanceof DBSt.Item){
+							var info = DBSt.parseItem(message);
+						}
+						console.log(info);
+						if(info instanceof DBSt.Item4a02){
+							console.log('Have track waveform detail');
+							if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(info);
+						}
+						if(info instanceof DBSt.Item4602){
+							console.log('Have track beatgrid');
+							if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(info);
+						}
+						session.buffer = session.buffer.slice(message.length);
+						if(!session.buffer.length) break;
+					}
+				}else{
+					//console.log('tcp4', ipv4_srcstr+':'+tcp4_src, ipv4_dststr+':'+tcp4_dst, ipv4_proto.toString(16), tcp4_payload);
 				}
-			}else{
-				console.log('tcp4', ipv4_srcstr+':'+tcp4_src, ipv4_dststr+':'+tcp4_dst, ipv4_proto.toString(16), tcp4_payload);
 			}
 		}else if(ipv4_proto==0x11){
 			// UDP

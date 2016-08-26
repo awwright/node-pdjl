@@ -36,11 +36,11 @@ function pushSection(localDirection){
 		currentSection.packets.push(item);
 		console.log(DBServer.formatBuf(item.original));
 		//console.log(item);
-//		try {
+		try {
 			DBServer.assertParsed(item.original, item);
-//		}catch(e){
-//			console.log(e.toString());
-//		}
+		}catch(e){
+			console.log(e.toString());
+		}
 		// Parse message contents
 		if(item instanceof DBServer.Item){
 			var info = DBServer.parseItem(item, item.original);
