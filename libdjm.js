@@ -353,6 +353,34 @@ DJMDevice.prototype.connect = function connect() {
 	if(device.useTZSPServer){
 		device.tzspd = listenUDP('0.0.0.0', 37008, device.onTZSPPacket.bind(device));
 	}
+	if(device.useTZSPClient){
+		device.tzspc = net.connect(37008, device.tzspServer);
+		device.tzspc.setNoDelay(true);
+		device.tzspc.resume();
+		device.tzspcBuf = null;
+		device.tzspc.on('data', function(buf){
+			if(device.tzspcBuf){
+				buf = Buffer.concat([device.tzspcBuf, buf]);
+			}
+			while(true){
+				var len = buf.readUInt16BE(0);
+				var seq = buf.readUInt16BE(2);
+				console.log('Packet', len, seq);
+				if(buf.length < len){
+					device.tzspcBuf = buf;
+					return;
+				}
+				var packet = buf.slice(4, len);
+				device.onTZSPPacket(packet);
+				if(buf.length > len){
+					buf = device.tzspcBuf = buf.slice(len);
+				}else{
+					device.tzspcBuf = null;
+					return;
+				}
+			}
+		});
+	}
 
 	if(device.useDbserver){
 		waiting++;
@@ -397,7 +425,7 @@ DJMDevice.prototype.onMsg0 = function onMsg0(msg, rinfo) {
 		if(msg[0x23]==0x21){
 			device.mixerIP = rinfo.address;
 		}
-		if(device.usePDJL50000) device.sendDeviceAck(rinfo.address);
+		if(!rinfo.dst && device.usePDJL50000) device.sendDeviceAck(rinfo.address);
 	}else if(type==0x06){
 		var emitDeviceChange = false;
 		var chan = msg[0x24];
@@ -446,14 +474,14 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		}else if(a==0x01 || a==0x02){
 			device.log('< 1_x2a Become master!');
 			device.handleNewMaster(device.channel);
-			if(device.usePDJL50001) device.send1x26(rinfo.address);
+			if(!rinfo.dst && device.usePDJL50001) device.send1x26(rinfo.address);
 		}else{
 			device.log(' 1_x2b Unknown sync assignment???', a);
 		}
 	}else if(type==0x26){
 		device.log('< 1_x26 Acknowledge new master');
 		device.handleNewMaster(msg[0x27]);
-		if(device.usePDJL50001) device.send1x27(rinfo.address);
+		if(!rinfo.dst && device.usePDJL50001) device.send1x27(rinfo.address);
 	}else if(type==0x28){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x'+typeStr);
 		var data = {
@@ -473,7 +501,6 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	if(type==0x03){
 		// Channels on air
 	}else if(type==0x0a){
-		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr);
 		var data = {
 			channel: msg[0x24],
 			track: new TrackReference(device, msg[0x28], msg[0x29], msg[0x2a], msg.readUInt32BE(0x2c)),
@@ -496,6 +523,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			trackBpm: ((msg[0x92]<<8) | (msg[0x93]))/100, // BPM of the track before tempo adjustments
 			master: !!(msg[0x9e]&0x01),
 		};
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+' '+data.totalBeats);
 		// Emit a message whenever we get one of these status updates
 		if(device.on2x0a) device.on2x0a(data);
 		if(device.devices[data.channel] && !data.track.compare(device.devices[data.channel].track)){
@@ -535,17 +563,17 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			sizeMB: 10000,
 			freeMB: 4000,
 		};
-		if(device.on2x06) device.on2x06(query);
-		if(device.usePDJL50002 && !rinfo.dst) device.send2x06(rinfo.address, response);
+		if(!rinfo.dst && device.on2x06) device.on2x06(query);
+		if(!rinfo.dst && device.usePDJL50002) device.send2x06(rinfo.address, response);
 	}else if(type==0x10){
 		// A rekordbox-specific packet it looks like, send 2_11
 		setTimeout(function(){
-			if(device.usePDJL50002) device.send2x11(rinfo.address);
-			if(device.usePDJL50002) device.send2x16(rinfo.address);
+			if(!rinfo.dst && device.usePDJL50002) device.send2x11(rinfo.address);
+			if(!rinfo.dst && device.usePDJL50002) device.send2x16(rinfo.address);
 			device.haveSent216 = true;
 		}, 200);
 		setTimeout(function(){
-			device.send2x16(rinfo.address);
+			if(!rinfo.dst && device.usePDJL50002) device.send2x16(rinfo.address);
 		}, 5000);
 	}else if(type==0x29){
 		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+': Mixer status packet', msg[0x27]);
@@ -681,6 +709,8 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 				family: 'IPv4',
 				address: ipv4_srcstr,
 				port: udp4_src,
+				dst: ipv4_dststr,
+				dstport: udp4_dst,
 			};
 			//console.log('udp4', ipv4_srcstr+':'+udp4_src, ipv4_dststr+':'+udp4_dst, ipv4_proto.toString(16));
 			if(udp4_dst===50000){
