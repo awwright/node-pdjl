@@ -363,9 +363,10 @@ DJMDevice.prototype.connect = function connect() {
 				buf = Buffer.concat([device.tzspcBuf, buf]);
 			}
 			while(true){
+				if(buf.length < 4) return;
 				var len = buf.readUInt16BE(0);
 				var seq = buf.readUInt16BE(2);
-				console.log('Packet', len, seq);
+				//console.log('Packet', len, seq);
 				if(buf.length < len){
 					device.tzspcBuf = buf;
 					return;

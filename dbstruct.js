@@ -209,24 +209,25 @@ function parseKibble(data){
 	var typeHex = data.slice(0,1).toString('hex');
 	var KibbleStruct = module.exports.Kibble[typeHex];
 	if(!KibbleStruct) throw new Error('Unknown kibble type '+typeHex);
-	return new KibbleStruct(data);
+	return KibbleStruct.fromBuffer(data);
 }
 
-// A 32-bit number or blob when used as a header
+// A 32-bit blob header
 function Kibble10(data){
+	this.type = 0x10;
 	if(data instanceof Buffer){
-		this.type = 0x10;
-		if(data[0]!=this.type) throw new Error('Not a 0x10 Kibble');
-		this.a = data[1];
-		this.b = data[2];
-		this.d = data[4];
-		this.hex = data.slice(1,3).toString('hex');
-		this.length = 5;
+		return Kibble10.fromBuffer(data);
 	}else{
 		this.a = data.a;
 		this.b = data.b;
 		this.d = data.d;
 	}
+	this.length = 5;
+}
+Kibble10.fromBuffer = function fromBuffer(data){
+	if(data[0]!=0x10) throw new Error('Not a 0x10 Kibble');
+	if(data.length < 5) return null;
+	return new Kibble10({a:data[1], b:data[2], d:data[4]});
 }
 Kibble10.prototype.toBuffer = function toBuffer(){
 	var d = this.data;
@@ -252,8 +253,13 @@ function Kibble11(data){
 		throw new Error('No initial value');
 	}
 }
+Kibble11.fromBuffer = function fromBuffer(data){
+	if(data[0]!=0x11) throw new Error('Not a 0x11 Kibble');
+	if(data.length < 5) return null;
+	return new Kibble11(data);
+}
 Kibble11.requestId = function(r){
-	return new Kibble11(0x03800000 + r);
+	return new Kibble11(0x03800000 | r);
 }
 Kibble11.prototype.toBuffer = function toBuffer(){
 	var d = this.data;
@@ -268,10 +274,15 @@ function Kibble14(data){
 	this.type = 0x14;
 	this.length = 0;
 	if(data instanceof Buffer){
-		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
-		var size = data.readUInt32BE(1);
-		this.setData(data.slice(5,5+size));
+		return Kibble14.fromBuffer(data);
 	}
+}
+Kibble14.fromBuffer = function(data){
+	if(data[0]!=0x14) throw new Error('Not a 0x14 Kibble');
+	if(data.length < 5) return null;
+	var size = data.readUInt32BE(1);
+	if(data.length < 5+size) return null;
+	return Kibble14.blob(data.slice(5,5+size));
 }
 Kibble14.prototype.setData = function setData(buf){
 	if(!buf || buf.length==0){
@@ -300,7 +311,7 @@ function Kibble26(data){
 	this.type = 0x26;
 	this.length = 7;
 	if(data instanceof Buffer){
-		if(data[0]!=this.type) throw new Error('Not a 0x14 Kibble');
+		if(data[0]!=this.type) throw new Error('Not a 0x26 Kibble');
 		var size = data.readUInt32BE(1) - 1;
 		this.string = ""; // don't include trailing null
 		for(var i=0; i<size; i++) this.string += String.fromCharCode(data.readUInt16BE(5 + i*2));
@@ -308,6 +319,11 @@ function Kibble26(data){
 	}else{
 		this.string = "";
 	}
+}
+Kibble26.fromBuffer = function fromBuffer(data){
+	if(data[0]!=0x26) throw new Error('Not a 0x26 Kibble');
+	if(data.length < 5) return null;
+	return new Kibble26(data);
 }
 Kibble26.prototype.setData = function setData(str){
 	this.string = str;
@@ -376,7 +392,7 @@ function parseMessage(data){
 	}
 	// All other packets will carry this magic number
 	if(info0 instanceof Kibble11 && info0.uint!==0x872349ae){
-		throw new Error('Invalid magic header');
+		throw new Error('Invalid info0 magic header');
 	}
 	// Look up second and third kibble
 	var info1 = parseKibble(data.slice(offset));
@@ -386,17 +402,19 @@ function parseMessage(data){
 	if(!info2) return null;
 	offset += info2.length;
 	if(!(info2 instanceof Kibble10)){
-		throw new Error('Missing Kibble10');
+		console.log(info2);
+		throw new Error('Missing info2 Kibble10');
 	}
 	// Maybe it's a Hello or Sup
 	if(info1.uint==0xfffffffe){
-		if(info2.hex==='0000'){
+		console.log('info1/info2', info1, info2);
+		if(info2.a===0 && info2.b===0){
 				return new ItemHello(data);
-		}else if(info2.hex==='4000'){
+		}else if(info2.a===0x40 && info2.b===0){
 			return new ItemSup(data);
 		}else{
 			// this happens sometimes if there's a protocol problem
-			throw new Error('this is not my cat: '+info2.hex);
+			throw new Error('this is not my cat: '+info2.toBuffer().toString('hex'));
 		}
 	}
 	// info3 tells us which arguments to expect
@@ -404,7 +422,7 @@ function parseMessage(data){
 	if(!info3) return null;
 	offset += info3.length;
 	if(!(info3 instanceof Kibble14)){
-		throw new Error('Missing Kibble14');
+		throw new Error('Missing info3 Kibble14');
 	}
 	// Everything after here is optional arguments
 	var item = new Item(info1.uint & 0xffff, info2.a, info2.b, []);
@@ -1234,6 +1252,14 @@ function Item4702(data){
 		this.method = message.args[0].uint;
 		this.arg1 = message.args[1].uint;
 		this.body3 = message.args[3].data;
+		// body3 is a series if 36 bytes per cuepoint or hotcue:
+		// bytes 00 01
+		// byte hotcue id (01, 02, 03)
+		// byte 00
+		// 32 bits 0
+		// 32 bits offset in half frames (150/seconds)
+		// 32 bits offset in full frames (75/seconds)
+		// 32 bits offset in 15-bit samples (2^15/seconds)
 		this.arg5 = message.args[5].uint;
 		this.arg6 = message.args[6].uint;
 		this.body8 = message.args[8].data;
