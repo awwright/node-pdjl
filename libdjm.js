@@ -372,13 +372,15 @@ DJMDevice.prototype.connect = function connect() {
 				if(buf.length < 4) return;
 				var len = buf.readUInt16BE(0);
 				var seq = buf.readUInt16BE(2);
-				//console.log('Packet', len, seq);
+				var tv_sec = buf.readUInt32BE(4);
+				var tv_usec = buf.readUInt32BE(8);
+				//console.log('Packet', seq);
 				if(buf.length < len){
 					device.tzspcBuf = buf;
 					return;
 				}
-				var packet = buf.slice(4, len);
-				device.onTZSPPacket(packet);
+				var packet = buf.slice(12, len);
+				device.onTZSPPacket(packet, {len:len, seq:seq, tv_sec:tv_sec, tv_usec:tv_usec});
 				if(buf.length > len){
 					buf = device.tzspcBuf = buf.slice(len);
 				}else{
