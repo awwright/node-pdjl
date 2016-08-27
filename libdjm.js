@@ -623,6 +623,15 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 		throw new Error('Unknown TZSP tag type '+msg[i]);
 	}
 	var eth_msg = msg.slice(i);
+	if(device.pcapStream){
+		var pcapPacket = new Buffer(16);
+		pcapPacket.writeUInt32BE(rinfo.tv_sec, 0);
+		pcapPacket.writeUInt32BE(rinfo.tv_usec, 4);
+		pcapPacket.writeUInt32BE(eth_msg.length, 8);
+		pcapPacket.writeUInt32BE(eth_msg.length, 12);
+		device.pcapStream.write(pcapPacket);
+		device.pcapStream.write(eth_msg);
+	}
 	// Got our ethernet frame data, now figure it all out
 	var mac_src = eth_msg.slice(0,6);
 	var mac_dst = eth_msg.slice(6,12);
