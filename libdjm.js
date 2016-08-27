@@ -6,12 +6,17 @@ var DBSt = module.exports.DBSt = require('./dbstruct.js');
 var DBServer = require('./dbserver.js');
 var udpProxy = require('./udpproxy.js');
 
+module.exports.TrackReference = TrackReference;
 function TrackReference(network, channel, media, ana, id){
 	this.network = network;
 	this.channel = channel;
 	this.media = media;
 	this.analysis = ana;
 	this.id = id;
+};
+TrackReference.prototype.toString = function toString(){
+	// remove circular references
+	return [this.channel,this.media,this.analysis,this.id].map(function(v){return v.toString(16)}).join(',');
 };
 TrackReference.prototype.toJSON = function toJSON(){
 	// remove circular references
@@ -128,6 +133,7 @@ DJMDevice.Defaults = {
 	//broadcastIP: '169.254.255.255',
 	//mixerIP: '169.254.101.168',
 	devices: {}, // Keeps state about devices currently on network
+	tracks: {},
 	// Device capability information
 	modePlayer: false,
 	modeMixer: false,
@@ -380,6 +386,9 @@ DJMDevice.prototype.connect = function connect() {
 					return;
 				}
 			}
+		});
+		device.tzspc.on('end', function(buf){
+			console.error('Server closed connection');
 		});
 	}
 
