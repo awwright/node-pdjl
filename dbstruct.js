@@ -361,7 +361,8 @@ var mapItem = module.exports.mapItem = {
 	"2204": Item2204,
 	"2504": Item2504,
 	"2904": Item2904,
-	"30": Item30,
+	"3000": Item3000,
+	"3001": Item3001,
 	"31": Item31,
 	"3e03": Item3e03,
 	"4000": Item4000,
@@ -446,7 +447,7 @@ function parseItem(message, data){
 	var ItemStruct = mapItem[((message.a<<8)|(message.b)).toString(16)] || mapItem[message.a.toString(16)];
 	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
 	var item = new ItemStruct(message);
-	assertParsed(data.slice(0,item.length), item);
+	if(data) assertParsed(data.slice(0,item.length), item);
 	return item;
 }
 
@@ -926,8 +927,8 @@ Item2904.prototype.toBuffer = function toBuffer(){
 }
 
 // This is sent to request that a particular menu be rendered out to the client
-module.exports.Item30 = Item30;
-function Item30(data){
+module.exports.Item3000 = Item3000;
+function Item3000(data){
 	this.method = 0x30;
 	if(data instanceof Buffer) var message = parseMessage(data);
 	else if (data instanceof Item) var message = data;
@@ -946,7 +947,7 @@ function Item30(data){
 		for(var n in data) this[n]=data[n];
 	}
 }
-Item30.prototype.toBuffer = function toBuffer(){
+Item3000.prototype.toBuffer = function toBuffer(){
 	var b = new Item(this.requestId, 0x30, 0x00, [
 		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
 		new Kibble11(this.offset),
@@ -954,6 +955,35 @@ Item30.prototype.toBuffer = function toBuffer(){
 		new Kibble11(0),
 		new Kibble11(this.len_a),
 		new Kibble11(this.opt5),
+	]);
+	return b.toBuffer();
+}
+
+// This seems to be sent out 60 seconds after a track has begun playing, since last pause or track skip
+// Possibly only in absence of a mixer on-air indicator
+// Marks track as "Played in set"
+// Maybe also KUVO-related?
+module.exports.Item3001 = Item3001;
+function Item3001(data){
+	this.method = 0x30;
+	if(data instanceof Buffer) var message = parseMessage(data);
+	else if (data instanceof Item) var message = data;
+	if(message instanceof Item){
+		this.length = data.length;
+		this.requestId = message.requestId;
+		this.clientChannel = message.args[0].data[0];
+		this.affectedMenu = message.args[0].data[1];
+		this.sourceMedia = message.args[0].data[2];
+		this.sourceAnalyzed = message.args[0].data[3];
+		this.resourceId = message.args[1].uint;
+	}else{
+		for(var n in data) this[n]=data[n];
+	}
+}
+Item3001.prototype.toBuffer = function toBuffer(){
+	var b = new Item(this.requestId, 0x30, 0x00, [
+		new Kibble11((this.clientChannel<<24)|(this.affectedMenu<<16)|(this.sourceMedia<<8)|(this.sourceAnalyzed<<0)),
+		new Kibble11(this.resourceId),
 	]);
 	return b.toBuffer();
 }
