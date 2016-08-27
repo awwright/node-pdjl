@@ -441,14 +441,14 @@ function djmproto2.dissector(buffer, pinfo, tree)
 		local xa5 = subtree:add(buffer(0xa5, 1), string.format("Beats to next cuepoint: %d (%d.%d)", beatsToCue, beatsToCue/4, beatsToCue%4) )
 
 		local xa6 = subtree:add(buffer(0xa6, 1), string.format("Beat: %d", buffer(0xa6, 1):uint()) )
-		local measure = buffer(0xa2, 2):uint() / 4
-		local beat = buffer(0xa6, 1):uint();
+		local trackBeat = buffer(0xa2, 2):uint()
+		local measureBeat = buffer(0xa6, 1):uint()
 
 		local xc0 = subtree:add(buffer(0xc0, 4), string.format("Tempoadjust_c0 slider position: %08x = %03.2f%%", buffer(0xc0, 4):uint(), buffer(0xc0, 4):uint()*100.0/0x100000.0) )
 		local xc4 = subtree:add(buffer(0xc4, 4), string.format("Tempoadjust_c4 play speed/playing: %08x = %03.2f%%", buffer(0xc4, 4):uint(), buffer(0xc4, 4):uint()*100.0/0x100000.0) )
 		local xc8 = subtree:add(buffer(0xc8, 4), string.format("Packet id: %08x", buffer(0xc8, 4):uint() ) )
 
-		pinfo.cols.info = string.format("Beatinfo %d|%d", measure, beat)
+		pinfo.cols.info = string.format("Beatinfo %d |%d", trackBeat, measureBeat)
 
 	elseif typ==0x0d then
 		-- Sent by DJM if it has a file that can be played

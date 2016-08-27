@@ -506,7 +506,7 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 			tempo: msg.readUInt32BE(0x54)/0x100000,
 			beat: msg[0x5c],
 		};
-		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x28 '+data.channel+' '+data.beat);
+		device.log('< '+rinfo.address + ":" + rinfo.port+'('+data.channel+') 1_x28 '+data.beat);
 		// Emit a message whenever we get one of these status updates
 		if(device.on1x28) device.on1x28(data);
 	}
@@ -542,7 +542,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			trackBpm: ((msg[0x92]<<8) | (msg[0x93]))/100, // BPM of the track before tempo adjustments
 			master: !!(msg[0x9e]&0x01),
 		};
-		device.log('< '+rinfo.address + ":" + rinfo.port+' 2_x'+typeStr+' '+data.totalBeats);
+		device.log('< '+rinfo.address + ":" + rinfo.port+'('+data.channel+') 2_x0a '+data.beat+' '+data.totalBeats);
 		// Emit a message whenever we get one of these status updates
 		if(device.on2x0a) device.on2x0a(data);
 		if(device.devices[data.channel] && !data.track.compare(device.devices[data.channel].track)){
