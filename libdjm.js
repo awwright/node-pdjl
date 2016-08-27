@@ -658,6 +658,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 		var ipv4_payload = ethpayload.slice(ipv4_hsize, ipv4_length);
 		if(ipv4_proto==0x01){
 			// ICMP
+			return;
 		}else if(ipv4_proto==0x06){
 			// TCP
 			device.tcp_sessions = device.tcp_sessions || {};
@@ -692,15 +693,23 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			}else{
 				var session = device.tcp_sessions[tcp4_sessionid];
 			}
-			if(!session){
-				console.log('Unknown session '+tcp4_sessionid);
-				var session = device.tcp_sessions[tcp4_sessionid] = device.tcp_sessions[tcp4_sessionid] || {};
-				session.buffer = new Buffer([]);
-				session.fragments = {};
-			} 
-			var serversess = session.server || session;
 			var tcp4_payload = ipv4_payload.slice(tcp4_hlen);
 			if(tcp4_payload.length){
+				if(!session){
+					console.log('Unknown session '+tcp4_sessionid);
+					// assume this is the client since all our protocols are request-response
+					var session = device.tcp_sessions[tcp4_sessionid] = device.tcp_sessions[tcp4_sessionid] || {};
+					session.buffer = new Buffer([]);
+					session.fragments = {};
+					session.address = ipv4_src;
+					session.port = tcp4_src;
+					var serversess = device.tcp_sessions[tcp4_sessionid_rev] = device.tcp_sessions[tcp4_sessionid_rev] || {};
+					serversess.buffer = new Buffer([]);
+					serversess.fragments = {};
+					serversess.address = ipv4_dst;
+					serversess.port = tcp4_dst;
+					session.server = serversess;
+				}
 				if(session.window===undefined){
 					session.window = tcp4_seq;
 				}
@@ -718,6 +727,9 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 						return;
 					}
 				});
+				if(!session.buffer || !session.buffer.length) return;
+				//console.log(session.buffer);
+				var serversess = session.server || session;
 				if(serversess.port==1051){
 					//console.log('dbserver', ipv4_srcstr, ipv4_dststr, tcp4_payload);
 					//try{console.log(DBSt.formatBuf(tcp4_payload));}catch(e){}
@@ -728,16 +740,44 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 					for(var message; message = DBSt.parseMessage(session.buffer);){
 						session.lastSyncDate = new Date;
 						if(message instanceof DBSt.Item){
-							var info = DBSt.parseItem(message);
+							try{
+								var info = DBSt.parseItem(message);
+							}catch(e){
+								console.error('Could not parse message:');
+								console.error(session.buffer.toString('hex'));
+								console.error(message);
+							}
 						}
-						console.log(info);
+						if(session.server){
+							session.server.pendingRequest = info;
+						}else{
+							var request = session.pendingRequest;
+							session.pendingRequest = null;
+						}
+						//console.log(session.port, info);
 						if(info instanceof DBSt.Item4a02){
-							console.log('Have track waveform detail');
-							if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(info);
+							console.log(request);
+							console.log(info);
+							var track = new TrackReference(device, 2, request.sourceMedia, request.sourceAnalyzed, request.resourceId).toString();
+							console.log('Have track waveform detail '+track);
+							device.tracks[track] = device.tracks[track] || {};
+							device.tracks[track].waveformdetail = info.body;
+							var remote = device.devices[request.clientChannel];
+							if(remote && remote.track && remote.track.compare(track)){
+								if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(session.pendingRequest, info);
+							}
+						}
+						if(info instanceof DBSt.Item4402){
+							console.log('Have track waveform summary');
+							if(device.onTrackWaveformSummary) device.onTrackWaveformSummary(session.pendingRequest, info);
 						}
 						if(info instanceof DBSt.Item4602){
 							console.log('Have track beatgrid');
-							if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(info);
+							if(device.onTrackBeatgrid) device.onTrackBeatgrid(session.pendingRequest, info);
+						}
+						if(info instanceof DBSt.Item4702){
+							console.log('Have track cuepoints');
+							if(device.onTrackCuepoints) device.onTrackCuepoints(info);
 						}
 						session.buffer = session.buffer.slice(message.length);
 						if(!session.buffer.length) break;
