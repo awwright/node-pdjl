@@ -369,7 +369,7 @@ DJMDevice.prototype.connect = function connect() {
 				buf = Buffer.concat([device.tzspcBuf, buf]);
 			}
 			while(true){
-				if(buf.length < 4) return;
+				if(buf.length < 12) return;
 				var len = buf.readUInt16BE(0);
 				var seq = buf.readUInt16BE(2);
 				var tv_sec = buf.readUInt32BE(4);
@@ -506,7 +506,7 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 			tempo: msg.readUInt32BE(0x54)/0x100000,
 			beat: msg[0x5c],
 		};
-		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x28 '+data.channel+' '+data.beat, data);
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x28 '+data.channel+' '+data.beat);
 		// Emit a message whenever we get one of these status updates
 		if(device.on1x28) device.on1x28(data);
 	}
@@ -747,6 +747,11 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 				}
 			}
 		}else if(ipv4_proto==0x11){
+			if(ipv4_payload.length<8){
+				console.error('UDP4 packet not long enough');
+				console.error(eth_msg.toString('hex'));
+				return;
+			}
 			// UDP
 			var udp4_src = ipv4_payload.readUInt16BE(0);
 			var udp4_dst = ipv4_payload.readUInt16BE(2);
