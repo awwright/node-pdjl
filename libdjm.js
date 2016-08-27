@@ -495,11 +495,18 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		device.handleNewMaster(msg[0x27]);
 		if(!rinfo.dst && device.usePDJL50001) device.send1x27(rinfo.address);
 	}else if(type==0x28){
-		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x'+typeStr);
 		var data = {
-			channel: msg[0x24],
+			channel: msg[0x21],
+			nextBeat1: msg.readUInt32BE(0x24),
+			nextBeat2: msg.readUInt32BE(0x28),
+			nextMeasure1: msg.readUInt32BE(0x2c),
+			nextBeat4: msg.readUInt32BE(0x30),
+			nextMeasure2: msg.readUInt32BE(0x34),
+			nextBeat8: msg.readUInt32BE(0x38),
+			tempo: msg.readUInt32BE(0x54)/0x100000,
 			beat: msg[0x5c],
 		};
+		device.log('< '+rinfo.address + ":" + rinfo.port+' 1_x28 '+data.channel+' '+data.beat, data);
 		// Emit a message whenever we get one of these status updates
 		if(device.on1x28) device.on1x28(data);
 	}
