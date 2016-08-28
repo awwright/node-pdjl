@@ -95,19 +95,8 @@ TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
 		if(!(info instanceof DBSt.Item4602)){
 			return void cb(new Error('Unexpected response'));
 		}
-		var val = {
-			header: info.body.slice(0, 20),
-			beats: [],
-		};
-		for(var i=20; info.body[i]; i+=16){
-			var beatData = info.body.slice(i, i+16);
-			val.beats.push({
-				beat: beatData[0],
-				time: beatData.readUInt32LE(4),
-				//data: beatData,
-			});
-		}
-		cb(null, val, info);
+		var track = self.network.haveBeatgrid();
+		cb(null, track, info);
 	}
 };
 
@@ -681,15 +670,14 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 					session.serverid = tcp4_sessionid;
 					session.clientid = tcp4_sessionid_rev;
 					session.client = device.tcp_sessions[tcp4_sessionid_rev];
-					session.client.server = tcp4_sessionid_rev;
 				}else{
 					// Else this is a client
 					session.clientid = tcp4_sessionid;
 					session.serverid = tcp4_sessionid_rev;
+					session.server = device.tcp_sessions[tcp4_sessionid_rev] = {};
 				}
 				session.address = ipv4_srcstr;
 				session.port = tcp4_src;
-				console.log('SYN');
 			}else{
 				var session = device.tcp_sessions[tcp4_sessionid];
 			}
@@ -733,74 +721,89 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 				if(serversess.port==1051){
 					//console.log('dbserver', ipv4_srcstr, ipv4_dststr, tcp4_payload);
 					//try{console.log(DBSt.formatBuf(tcp4_payload));}catch(e){}
-
-					// TODO if the buffer has been sitting for more than ~5 seconds,
-					// then look for the next magic header and skip to that to try to re-sync
 					session.lastDataDate = new Date;
-					for(var message; message = DBSt.parseMessage(session.buffer);){
+					while(session.buffer && session.buffer.length){
 						session.lastSyncDate = new Date;
-						if(message instanceof DBSt.Item){
-							try{
-								var info = DBSt.parseItem(message);
-							}catch(e){
-								console.error('Could not parse message:');
-								console.error(session.buffer.toString('hex'));
-								console.error(message);
-								// Skip to next packet-looking thingy
-								var nextMessage = session.buffer.indexOf(new Buffer('872349ae','hex'), 1);
-								if(nextMessage>=0){
-									session.buffer = session.buffer.slice(nextMessage);
-								}else{
-									// If nothing found then just nuke the thing
-									session.buffer = new Buffer([]);
-								}
+						try{
+							var message = DBSt.parseMessage(session.buffer);
+							if(!message) break;
+							session.buffer = session.buffer.slice(message.length);
+							if(!(message instanceof DBSt.Item)) continue;
+						}catch(e){
+							console.error('Could not parse bytes:');
+							console.error(session.buffer.toString('hex'));
+							console.error(message);
+							// Skip to next packet-looking thingy
+							var nextMessage = session.buffer.indexOf(new Buffer('11872349ae','hex'), 1);
+							if(nextMessage>0){
+								console.error('Skipping '+nextMessage+' bytes to next magic number');
+								session.buffer = session.buffer.slice(nextMessage);
+							}else{
+								// If nothing found then just nuke the thing
+								session.buffer = new Buffer([]);
 							}
+							continue;
+						}
+						try{
+							var info = DBSt.parseItem(message);
+						}catch(e){
+							console.error('Could not parse message:');
+							console.error(session.buffer.toString('hex'));
+							console.error(message);
+							continue;
 						}
 						if(session.server){
+							console.log('Parsed request '+info.constructor.name);
+							// If this is the client, tag the server session with the request it's supposedly currently processing
 							session.server.pendingRequest = info;
+						}else if(session.pendingRequest){
+							console.log('Parsed response '+info.constructor.name);
+							// Look up the request this is a response to
+							if(session.pendingRequest.requestId==info.requestId){
+								var request = session.pendingRequest;
+							}
 						}else{
-							// TODO ensure that the request ID matches
-							var request = session.pendingRequest;
-							session.pendingRequest = null;
+							console.log('Parsed message without pending request '+info.constructor.name);
 						}
-						//console.log(session.port, info);
-						if(info instanceof DBSt.Item4a02){
-							console.log(request);
-							console.log(info);
+						console.log(request&&request.constructor.name, info.constructor.name);
+						if(request){
+							// Which channel is the request being made to?
 							var sourceChan = undefined;
 							for(var chan in device.devices){
-								console.log(chan, session.address, device.devices[chan].address, device.devices[chan].channel);
 								if(session.address==device.devices[chan].address){
 									sourceChan = device.devices[chan].channel;
 								}
 							}
-							var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
-							console.log('Have track waveform detail '+track);
-							device.tracks[track] = device.tracks[track] || {track:track};
-							device.tracks[track].waveformdetail = info.body;
-							if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(track, info);
-							for(var chan in device.devices){
-								var remote = device.devices[request.clientChannel];
+							if(info instanceof DBSt.Item4a02){
+								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
+								console.log('Have track waveform detail '+track);
+								device.tracks[track] = device.tracks[track] || {track:track};
+								device.tracks[track].waveformdetail = info.body;
+								if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(track, info);
+								for(var chan in device.devices){
+									var remote = device.devices[request.clientChannel];
+								}
+								if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformDetail)){
+									remote.trackWaveformDetail = remote.track;
+									if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
+								}
 							}
-							if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformDetail)){
-								remote.trackWaveformDetail = remote.track;
-								if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
+							if(info instanceof DBSt.Item4402){
+								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
+								console.log('Have track waveform summary '+track);
+								if(device.onTrackWaveformSummary) device.onTrackWaveformSummary(session.pendingRequest, info);
+							}
+							if(info instanceof DBSt.Item4602){
+								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
+								console.log('Have track beatgrid '+track);
+								device.haveBeatgrid(track, info);
+							}
+							if(info instanceof DBSt.Item4702){
+								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
+								console.log('Have track cuepoints '+track);
+								if(device.onTrackCuepoints) device.onTrackCuepoints(info);
 							}
 						}
-						if(info instanceof DBSt.Item4402){
-							console.log('Have track waveform summary');
-							if(device.onTrackWaveformSummary) device.onTrackWaveformSummary(session.pendingRequest, info);
-						}
-						if(info instanceof DBSt.Item4602){
-							console.log('Have track beatgrid');
-							if(device.onTrackBeatgrid) device.onTrackBeatgrid(session.pendingRequest, info);
-						}
-						if(info instanceof DBSt.Item4702){
-							console.log('Have track cuepoints');
-							if(device.onTrackCuepoints) device.onTrackCuepoints(info);
-						}
-						session.buffer = session.buffer.slice(message.length);
-						if(!session.buffer.length) break;
 					}
 				}else{
 					//console.log('tcp4', ipv4_srcstr+':'+tcp4_src, ipv4_dststr+':'+tcp4_dst, ipv4_proto.toString(16), tcp4_payload);
@@ -885,8 +888,6 @@ DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 			if(!device.useDbclient) return void cb();
 			if(!device.onTrackChangeBeatgrid) return void cb();
 			remote.track.getBeatgrid(function(err, meta){
-				remote.trackBeatgrid = meta;
-				device.onTrackChangeBeatgrid(remote);
 				cb();
 			});
 		},
@@ -1621,4 +1622,27 @@ DJMDevice.prototype.boot = function boot(){
 		setTimeout(this.send0x0a.bind(this), (i++)*wait);
 	}
 	setTimeout(this.doBootup.bind(this), i*wait);
+}
+
+DJMDevice.prototype.haveBeatgrid = function haveBeatgrid(track, info){
+	var device = this;
+	var trackdata = device.tracks[track] = device.tracks[track] || {track:track};
+	trackdata.beatgrid = info.body;
+	trackdata.beats = [null];
+	for(var i=20; info.body[i]; i+=16){
+		var beatData = info.body.slice(i, i+16);
+		trackdata.beats.push({
+			beat: beatData[0],
+			time: beatData.readUInt32LE(4),
+			//data: beatData,
+		});
+	}
+	if(device.onTrackWaveformDetail) device.onTrackBeatgrid(track, info);
+	for(var chan in device.devices){
+		var remote = device.devices[chan];
+		if(remote && track.compare(remote.track) && !track.compare(remote.trackBeatgrid)){
+			remote.trackBeatgrid = remote.track;
+			if(device.onTrackChangeBeatgrid) device.onTrackChangeBeatgrid(remote, track);
+		}
+	}
 }
