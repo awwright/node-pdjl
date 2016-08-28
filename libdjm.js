@@ -778,16 +778,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 							if(info instanceof DBSt.Item4a02){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
 								console.log('Have track waveform detail '+track);
-								device.tracks[track] = device.tracks[track] || {track:track};
-								device.tracks[track].waveformdetail = info.body;
-								if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(track, info);
-								for(var chan in device.devices){
-									var remote = device.devices[request.clientChannel];
-								}
-								if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformDetail)){
-									remote.trackWaveformDetail = remote.track;
-									if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
-								}
+								device.haveWaveformDetail(track, info);
 							}
 							if(info instanceof DBSt.Item4402){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
@@ -1628,6 +1619,11 @@ DJMDevice.prototype.boot = function boot(){
 DJMDevice.prototype.haveBeatgrid = function haveBeatgrid(track, info){
 	var device = this;
 	var trackdata = device.tracks[track] = device.tracks[track] || {track:track};
+	if(!info || !info.body){
+		trackdata.beatgrid = null;
+		trackdata.beats = [];
+		return;
+	}
 	trackdata.beatgrid = info.body;
 	trackdata.beats = [{beat:0, time:0}];
 	for(var i=20; info.body[i]; i+=16){
@@ -1638,12 +1634,30 @@ DJMDevice.prototype.haveBeatgrid = function haveBeatgrid(track, info){
 			//data: beatData,
 		});
 	}
-	if(device.onTrackWaveformDetail) device.onTrackBeatgrid(track, info);
+	if(device.onTrackBeatgrid) device.onTrackBeatgrid(track, info);
 	for(var chan in device.devices){
 		var remote = device.devices[chan];
 		if(remote && track.compare(remote.track) && !track.compare(remote.trackBeatgrid)){
 			remote.trackBeatgrid = remote.track;
 			if(device.onTrackChangeBeatgrid) device.onTrackChangeBeatgrid(remote, track);
+		}
+	}
+}
+
+DJMDevice.prototype.haveWaveformDetail = function haveWaveformDetail(track, info){
+	var device = this;
+	var trackdata = device.tracks[track] = device.tracks[track] || {track:track};
+	if(!info || !info.body){
+		trackdata.waveformdetail = null;
+		return;
+	}
+	trackdata.waveformdetail = info.body;
+	if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(track, info);
+	for(var chan in device.devices){
+		var remote = device.devices[chan];
+		if(remote && track.compare(remote.track) && !track.compare(remote.trackBeatgrid)){
+			remote.trackBeatgrid = remote.track;
+			if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
 		}
 	}
 }
