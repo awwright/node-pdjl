@@ -687,7 +687,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 					session.clientid = tcp4_sessionid;
 					session.serverid = tcp4_sessionid_rev;
 				}
-				session.address = ipv4_src;
+				session.address = ipv4_srcstr;
 				session.port = tcp4_src;
 				console.log('SYN');
 			}else{
@@ -701,12 +701,12 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 					var session = device.tcp_sessions[tcp4_sessionid] = device.tcp_sessions[tcp4_sessionid] || {};
 					session.buffer = new Buffer([]);
 					session.fragments = {};
-					session.address = ipv4_src;
+					session.address = ipv4_srcstr;
 					session.port = tcp4_src;
 					var serversess = device.tcp_sessions[tcp4_sessionid_rev] = device.tcp_sessions[tcp4_sessionid_rev] || {};
 					serversess.buffer = new Buffer([]);
 					serversess.fragments = {};
-					serversess.address = ipv4_dst;
+					serversess.address = ipv4_dststr;
 					serversess.port = tcp4_dst;
 					session.server = serversess;
 				}
@@ -746,11 +746,20 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 								console.error('Could not parse message:');
 								console.error(session.buffer.toString('hex'));
 								console.error(message);
+								// Skip to next packet-looking thingy
+								var nextMessage = session.buffer.indexOf(new Buffer('872349ae','hex'), 1);
+								if(nextMessage>=0){
+									session.buffer = session.buffer.slice(nextMessage);
+								}else{
+									// If nothing found then just nuke the thing
+									session.buffer = new Buffer([]);
+								}
 							}
 						}
 						if(session.server){
 							session.server.pendingRequest = info;
 						}else{
+							// TODO ensure that the request ID matches
 							var request = session.pendingRequest;
 							session.pendingRequest = null;
 						}
@@ -758,13 +767,24 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 						if(info instanceof DBSt.Item4a02){
 							console.log(request);
 							console.log(info);
-							var track = new TrackReference(device, 2, request.sourceMedia, request.sourceAnalyzed, request.resourceId).toString();
+							var sourceChan = undefined;
+							for(var chan in device.devices){
+								console.log(chan, session.address, device.devices[chan].address, device.devices[chan].channel);
+								if(session.address==device.devices[chan].address){
+									sourceChan = device.devices[chan].channel;
+								}
+							}
+							var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
 							console.log('Have track waveform detail '+track);
-							device.tracks[track] = device.tracks[track] || {};
+							device.tracks[track] = device.tracks[track] || {track:track};
 							device.tracks[track].waveformdetail = info.body;
-							var remote = device.devices[request.clientChannel];
-							if(remote && remote.track && remote.track.compare(track)){
-								if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(session.pendingRequest, info);
+							if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(track, info);
+							for(var chan in device.devices){
+								var remote = device.devices[request.clientChannel];
+							}
+							if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformDetail)){
+								remote.trackWaveformDetail = remote.track;
+								if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
 							}
 						}
 						if(info instanceof DBSt.Item4402){
