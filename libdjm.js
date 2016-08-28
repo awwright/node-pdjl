@@ -485,6 +485,7 @@ DJMDevice.prototype.onMsg1 = function onMsg1(msg, rinfo) {
 		if(!rinfo.dst && device.usePDJL50001) device.send1x27(rinfo.address);
 	}else if(type==0x28){
 		var data = {
+			date: rinfo.tv_sec && new Date(rinfo.tv_sec*1000 + rinfo.tv_usec/1000),
 			channel: msg[0x21],
 			nextBeat1: msg.readUInt32BE(0x24),
 			nextBeat2: msg.readUInt32BE(0x28),
@@ -509,9 +510,12 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	if(type==0x03){
 		// Channels on air
 	}else if(type==0x0a){
+		var track = new TrackReference(device, msg[0x28], msg[0x29], msg[0x2a], msg.readUInt32BE(0x2c));
+		if(track.toString()=='0,0,0,0') track=null;
 		var data = {
+			date: rinfo.tv_sec && new Date(rinfo.tv_sec*1000 + rinfo.tv_usec/1000),
 			channel: msg[0x24],
-			track: new TrackReference(device, msg[0x28], msg[0x29], msg[0x2a], msg.readUInt32BE(0x2c)),
+			track: track,
 			sourceid: [msg[0x24],msg[0x25],msg[0x26],msg[0x27],msg[0x28],msg[0x29],msg[0x2a],msg[0x2b]],
 			sourceDevice: msg[0x28],
 			sourceMedia: msg[0x29],
@@ -534,7 +538,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 		device.log('< '+rinfo.address + ":" + rinfo.port+'('+data.channel+') 2_x0a '+data.beat+' '+data.totalBeats);
 		// Emit a message whenever we get one of these status updates
 		if(device.on2x0a) device.on2x0a(data);
-		if(device.devices[data.channel] && !data.track.compare(device.devices[data.channel].track)){
+		if(device.devices[data.channel] && data.track && !data.track.compare(device.devices[data.channel].track)){
 			// Emit a message when the current playing track changes
 			var oldTrack = device.devices[data.channel].track;
 			device.devices[data.channel].track = data.track;
@@ -753,19 +757,16 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 							continue;
 						}
 						if(session.server){
-							console.log('Parsed request '+info.constructor.name);
 							// If this is the client, tag the server session with the request it's supposedly currently processing
 							session.server.pendingRequest = info;
 						}else if(session.pendingRequest){
-							console.log('Parsed response '+info.constructor.name);
 							// Look up the request this is a response to
 							if(session.pendingRequest.requestId==info.requestId){
 								var request = session.pendingRequest;
 							}
 						}else{
-							console.log('Parsed message without pending request '+info.constructor.name);
+							console.error('Parsed message without pending request '+info.constructor.name);
 						}
-						console.log(request&&request.constructor.name, info.constructor.name);
 						if(request){
 							// Which channel is the request being made to?
 							var sourceChan = undefined;
@@ -1628,7 +1629,7 @@ DJMDevice.prototype.haveBeatgrid = function haveBeatgrid(track, info){
 	var device = this;
 	var trackdata = device.tracks[track] = device.tracks[track] || {track:track};
 	trackdata.beatgrid = info.body;
-	trackdata.beats = [null];
+	trackdata.beats = [{beat:0, time:0}];
 	for(var i=20; info.body[i]; i+=16){
 		var beatData = info.body.slice(i, i+16);
 		trackdata.beats.push({
