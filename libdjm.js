@@ -1655,8 +1655,8 @@ DJMDevice.prototype.haveWaveformDetail = function haveWaveformDetail(track, info
 	if(device.onTrackWaveformDetail) device.onTrackWaveformDetail(track, info);
 	for(var chan in device.devices){
 		var remote = device.devices[chan];
-		if(remote && track.compare(remote.track) && !track.compare(remote.trackBeatgrid)){
-			remote.trackBeatgrid = remote.track;
+		if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformDetail)){
+			remote.trackWaveformDetail = remote.track;
 			if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
 		}
 	}
