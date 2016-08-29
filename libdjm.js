@@ -342,38 +342,7 @@ DJMDevice.prototype.connect = function connect() {
 		device.tzspd = listenUDP('0.0.0.0', 37008, device.onTZSPPacket.bind(device));
 	}
 	if(device.useTZSPClient){
-		device.tzspc = net.connect(37008, device.tzspServer);
-		device.tzspc.setNoDelay(true);
-		device.tzspc.resume();
-		device.tzspcBuf = null;
-		device.tzspc.on('data', function(buf){
-			if(device.tzspcBuf){
-				buf = Buffer.concat([device.tzspcBuf, buf]);
-			}
-			while(true){
-				if(buf.length < 12) return;
-				var len = buf.readUInt16BE(0);
-				var seq = buf.readUInt16BE(2);
-				var tv_sec = buf.readUInt32BE(4);
-				var tv_usec = buf.readUInt32BE(8);
-				//console.log('Packet', seq);
-				if(buf.length < len){
-					device.tzspcBuf = buf;
-					return;
-				}
-				var packet = buf.slice(12, len);
-				device.onTZSPPacket(packet, {len:len, seq:seq, tv_sec:tv_sec, tv_usec:tv_usec});
-				if(buf.length > len){
-					buf = device.tzspcBuf = buf.slice(len);
-				}else{
-					device.tzspcBuf = null;
-					return;
-				}
-			}
-		});
-		device.tzspc.on('end', function(buf){
-			console.error('Server closed connection');
-		});
+		device.startTZSPClient(device.tzspServer);
 	}
 
 	if(device.useDbserver){
@@ -1617,6 +1586,50 @@ DJMDevice.prototype.doDiscoverable = function doDiscoverable(){
 	if(device.onListening){
 		device.onListening();
 	}
+}
+
+DJMDevice.prototype.startTZSPClient = function(remoteAddr){
+	var device = this;
+	device.tzspcBackoff = device.tzspcBackoff || 0;
+	device.tzspc = net.connect(37008, remoteAddr);
+	device.tzspc.setNoDelay(true);
+	device.tzspc.resume();
+	device.tzspcBuf = null;
+	device.tzspc.on('connect', function(buf){
+		console.log('Connected to TZSP client '+remoteAddr);
+	});
+	device.tzspc.on('data', function(buf){
+		if(device.tzspcBuf){
+			buf = Buffer.concat([device.tzspcBuf, buf]);
+		}
+		while(true){
+			if(buf.length < 12) return;
+			var len = buf.readUInt16BE(0);
+			var seq = buf.readUInt16BE(2);
+			var tv_sec = buf.readUInt32BE(4);
+			var tv_usec = buf.readUInt32BE(8);
+			//console.log('Packet', seq);
+			if(buf.length < len){
+				device.tzspcBuf = buf;
+				return;
+			}
+			var packet = buf.slice(12, len);
+			device.onTZSPPacket(packet, {len:len, seq:seq, tv_sec:tv_sec, tv_usec:tv_usec});
+			if(buf.length > len){
+				buf = device.tzspcBuf = buf.slice(len);
+			}else{
+				device.tzspcBuf = null;
+				return;
+			}
+		}
+	});
+	device.tzspc.on('end', function(buf){
+		console.error('Server closed TZSPC connection');
+		setTimeout(device.startTZSPClient.bind(device, remoteAddr), 100*Math.pow(1.1, ++device.tzspcBackoff));
+	});
+	device.tzspc.on('error', function(e){
+		setTimeout(device.startTZSPClient.bind(device, remoteAddr), 100*Math.pow(1.1, ++device.tzspcBackoff));
+	});
 }
 
 DJMDevice.prototype.boot = function boot(){
