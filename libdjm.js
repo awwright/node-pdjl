@@ -777,7 +777,6 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 							}
 							if(info instanceof DBSt.Item4a02){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
-								console.log('Have track waveform detail '+track);
 								device.haveWaveformDetail(track, info);
 							}
 							if(info instanceof DBSt.Item4402){
@@ -787,13 +786,23 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 							}
 							if(info instanceof DBSt.Item4602){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
-								console.log('Have track beatgrid '+track);
 								device.haveBeatgrid(track, info);
 							}
 							if(info instanceof DBSt.Item4702){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
 								console.log('Have track cuepoints '+track);
 								if(device.onTrackCuepoints) device.onTrackCuepoints(info);
+							}
+							if(info instanceof DBSt.Item4001){
+								info.items = [];
+								info.footer = null;
+								session.activeResponse = info;
+							}else if(info instanceof DBSt.Item41){
+								session.activeResponse.items.push(info);
+							}else if(info instanceof DBSt.Item42){
+								session.activeResponse.footer = info;
+								// Now figure out what to do with this
+								console.log('Saw a menu response: ', session.activeResponse);
 							}
 						}
 					}
