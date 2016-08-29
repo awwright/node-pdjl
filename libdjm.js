@@ -505,6 +505,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 	}else if(type==0x0a){
 		var track = new TrackReference(device, msg[0x28], msg[0x29], msg[0x2a], msg.readUInt32BE(0x2c));
 		if(track.toString()=='0,0,0,0') track=null;
+		var bpm = (msg[0x92]<<8) | (msg[0x93]);
 		var data = {
 			date: rinfo.tv_sec && new Date(rinfo.tv_sec*1000 + rinfo.tv_usec/1000),
 			channel: msg[0x24],
@@ -525,7 +526,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			playingSpeed: msg.readUInt32BE(0x98) / 0x100000, // the actual play rate that's coming out of the device, zero if stopped
 			settingSpeed: msg.readUInt32BE(0xc0) / 0x100000, // play rate of the track with tempo slider position, but before jog wheel adjustments
 			windSpeed: msg.readUInt32BE(0xc4) / 0x100000, // play rate of the track with current tempo settings if playing and fully up to speed
-			trackBpm: ((msg[0x92]<<8) | (msg[0x93]))/100, // BPM at current track position
+			bpm: bpm==65535 ? null : bpm/100, // BPM at current track position
 			master: !!(msg[0x9e]&0x01),
 		};
 		device.log('< '+rinfo.address + ":" + rinfo.port+'('+data.channel+') 2_x0a '+data.beat+' '+data.totalBeats);
@@ -681,7 +682,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			var tcp4_payload = ipv4_payload.slice(tcp4_hlen);
 			if(tcp4_payload.length){
 				if(!session){
-					console.log('Unknown session '+tcp4_sessionid);
+					console.error('Unknown session '+tcp4_sessionid);
 					// assume this is the client since all our protocols are request-response
 					var session = device.tcp_sessions[tcp4_sessionid] = device.tcp_sessions[tcp4_sessionid] || {};
 					session.buffer = new Buffer([]);
@@ -796,7 +797,6 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 								session.activeResponse = info;
 							}else if(info instanceof DBSt.Item41){
 								session.activeResponse.items.push(info);
-								console.log(info);
 							}else if(info instanceof DBSt.Item42){
 								session.activeResponse.footer = info;
 								if(session.currentNavRequest instanceof DBSt.Item2002){
@@ -830,6 +830,8 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 			var udp4_payload = ipv4_payload.slice(8);
 			var rinfo = {
 				size: udp4_len,
+				tv_sec: rinfo.tv_sec,
+				tv_usec: rinfo.tv_usec,
 				family: 'IPv4',
 				address: ipv4_srcstr,
 				port: udp4_src,

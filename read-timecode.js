@@ -1,28 +1,22 @@
-var dgram = require("dgram");
 
-var server = dgram.createSocket("udp4");
+var DJM = require('djm');
 
-server.on("error", function (err) {
-	console.log("server error:\n" + err.stack);
-	server.close();
-});
+var device = {};
+var djmDevice = device.link = new DJM.DJMDevice;
+djmDevice.log = function(){};
 
-server.on("message", function (msg, rinfo) {
-	//console.log("server got: " + msg + " from " + rinfo.address + ":" + rinfo.port);
-	var type = msg[0x23]; // byte 4d on packet
-	var typeStr = ('0'+type.toString(16)).substr(-2);
-	var deviceName = msg.toString().substr(0x0b, 16).replace(/\x00/g, '');
-	if(type==0x3c){
-		console.log(rinfo.address + " " + deviceName + ' ' + typeStr + ' ' + msg[0x5c]);
-	}else{
-		console.log(rinfo.address + " " + deviceName + ' ' + typeStr);
-	}
-});
+djmDevice.on1x28 = function(data){
+	//console.log('on1x28', data);
+	console.log(data);
+};
+djmDevice.on2x0a = function(data){
+	//console.log('on2x0a', data);
+}
+djmDevice.on2x29 = function(data){
+	//console.log('on2x29', data);
+}
+device.link.setConfigurePassive();
+device.link.useTZSPClient = true;
+device.link.tzspServer = '192.168.0.98';
 
-server.on("listening", function () {
-	var address = server.address();
-	console.log("server listening " +	address.address + ":" + address.port);
-});
-
-server.bind(50001);
-// server listening 0.
+device.link.connect();
