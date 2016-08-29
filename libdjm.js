@@ -67,14 +67,7 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 			console.error('Error', err.toString());
 			return;
 		}
-		var trackData = {
-			track: self,
-		};
-		data.items.forEach(function(v){
-			var key = DBSt.itemTypeLabels[v.symbol] || v.symbol.toString(16);
-			var value = v.label || v.numeric;
-			trackData[key] = value;
-		});
+		self.network.haveTrackMetadata2102(self, info);
 		cb(null, trackData);
 	}
 };
@@ -95,7 +88,7 @@ TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
 		if(!(info instanceof DBSt.Item4602)){
 			return void cb(new Error('Unexpected response'));
 		}
-		var track = self.network.haveBeatgrid();
+		var track = self.network.haveBeatgrid(self, info);
 		cb(null, track, info);
 	}
 };
@@ -775,6 +768,10 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 									sourceChan = device.devices[chan].channel;
 								}
 							}
+							if(info instanceof DBSt.Item4000){
+								session.currentNavRequest = request;
+								session.currentNavResponse = info;
+							}
 							if(info instanceof DBSt.Item4a02){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
 								device.haveWaveformDetail(track, info);
@@ -799,10 +796,19 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 								session.activeResponse = info;
 							}else if(info instanceof DBSt.Item41){
 								session.activeResponse.items.push(info);
+								console.log(info);
 							}else if(info instanceof DBSt.Item42){
 								session.activeResponse.footer = info;
-								// Now figure out what to do with this
-								console.log('Saw a menu response: ', session.activeResponse);
+								if(session.currentNavRequest instanceof DBSt.Item2002){
+									// Track metadata (title, artist, album, genre, comment, album art)
+									var track = new TrackReference(device, sourceChan, session.currentNavRequest.sourceMedia, session.currentNavRequest.sourceAnalyzed, session.currentNavRequest.resourceId);
+									device.haveTrackMetadata(track, session.activeResponse);
+								}
+								if(session.currentNavRequest instanceof DBSt.Item2102){
+									// Track link information (title, file path, and other things)
+									//var track = new TrackReference(device, sourceChan, session.currentNavRequest.sourceMedia, session.currentNavRequest.sourceAnalyzed, //session.currentNavRequest.resourceId);
+									//device.haveTrackMetadata(track, session.activeResponse);
+								}
 							}
 						}
 					}
@@ -880,8 +886,6 @@ DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 			if(!device.useDbclient) return void cb();
 			if(!device.onTrackChangeMetadata) return void cb();
 			remote.track.getMetadata(function(err, meta){
-				remote.trackMetadata = meta;
-				device.onTrackChangeMetadata(remote);
 				cb();
 			});
 		},
@@ -1623,6 +1627,27 @@ DJMDevice.prototype.boot = function boot(){
 		setTimeout(this.send0x0a.bind(this), (i++)*wait);
 	}
 	setTimeout(this.doBootup.bind(this), i*wait);
+}
+
+DJMDevice.prototype.haveTrackMetadata = function haveTrackMetadata(track, info){
+	var device = this;
+	var trackdata = device.tracks[track] = device.tracks[track] || {track:track};
+
+	var metadata = trackdata.metadata = {};
+	info.items.forEach(function(v){
+		var key = DBSt.itemTypeLabels[v.symbol] || v.symbol.toString(16);
+		var value = v.label || v.numeric;
+		metadata[key] = value;
+	});
+
+	if(device.onTrackMetadata) device.onTrackMetadata(track, info);
+	for(var chan in device.devices){
+		var remote = device.devices[chan];
+		if(remote && track.compare(remote.track) && !track.compare(remote.trackMetadata)){
+			remote.trackMetadata = remote.track;
+			if(device.onTrackChangeMetadata) device.onTrackChangeMetadata(remote, track);
+		}
+	}
 }
 
 DJMDevice.prototype.haveBeatgrid = function haveBeatgrid(track, info){
