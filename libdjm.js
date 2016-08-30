@@ -748,8 +748,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 							}
 							if(info instanceof DBSt.Item4402){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
-								console.log('Have track waveform summary '+track);
-								if(device.onTrackWaveformSummary) device.onTrackWaveformSummary(session.pendingRequest, info);
+								device.haveWaveformSummary(track, info);
 							}
 							if(info instanceof DBSt.Item4602){
 								var track = new TrackReference(device, sourceChan, request.sourceMedia, request.sourceAnalyzed, request.resourceId);
@@ -1628,6 +1627,7 @@ DJMDevice.prototype.startTZSPClient = function(remoteAddr){
 		setTimeout(device.startTZSPClient.bind(device, remoteAddr), 100*Math.pow(1.1, ++device.tzspcBackoff));
 	});
 	device.tzspc.on('error', function(e){
+		console.error('TZSP connection error');
 		setTimeout(device.startTZSPClient.bind(device, remoteAddr), 100*Math.pow(1.1, ++device.tzspcBackoff));
 	});
 }
@@ -1707,6 +1707,24 @@ DJMDevice.prototype.haveWaveformDetail = function haveWaveformDetail(track, info
 		if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformDetail)){
 			remote.trackWaveformDetail = remote.track;
 			if(device.onTrackChangeWaveformDetail) device.onTrackChangeWaveformDetail(remote, track);
+		}
+	}
+}
+
+DJMDevice.prototype.haveWaveformSummary = function haveWaveformSummary(track, info){
+	var device = this;
+	var trackdata = device.tracks[track] = device.tracks[track] || {track:track};
+	if(!info || !info.body){
+		trackdata.waveformsummary = null;
+		return;
+	}
+	trackdata.waveformsummary = info.body;
+	if(device.onTrackWaveformSummary) device.onTrackWaveformSummary(track, info);
+	for(var chan in device.devices){
+		var remote = device.devices[chan];
+		if(remote && track.compare(remote.track) && !track.compare(remote.trackWaveformSummary)){
+			remote.trackWaveformSummary = remote.track;
+			if(device.onTrackChangeWaveformSummary) device.onTrackChangeWaveformSummary(remote, track);
 		}
 	}
 }
