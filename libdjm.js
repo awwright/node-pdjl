@@ -485,6 +485,9 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			sourceMediaStr: DJMDevice.mediaSourceMap[msg[0x29]],
 			analyzedStatus: msg[0x2a],
 			analyzedStatusStr: DJMDevice.analyzedStatus[msg[0x2a]],
+			usbMountedByte: msg[0x6f],
+			sdMountedByte: msg[0x73],
+			discMountedByte: msg[0x76],
 			trackid: msg.readUInt32BE(0x2c),
 			discid: msg.slice(0x4c, 0x58).toString('hex'),
 			playlistno: msg[0x33],
@@ -510,6 +513,12 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			device.devices[data.channel].trackInfoStatus = null;
 			if(device.onTrackChangeDetect) device.onTrackChangeDetect(device.devices[data.channel], oldTrack);
 			device.checkNewTrackMetadata();
+		}
+		if(device.devices[data.channel] && device.devices[data.channel].usbMountedByte!=data.usbMountedByte){
+			if(data.usbMountedByte==4) device.detectMediaUnmount(data.channel, 3, data);
+		}
+		if(device.devices[data.channel] && device.devices[data.channel].sdMountedByte!=data.sdMountedByte){
+			if(data.sdMountedByte==4) device.detectMediaUnmount(data.channel, 2, data);
 		}
 		var newMaster = msg[0x89]&0x20 || msg[0x9e]&0x01;
 		if(!newMaster) return;
@@ -1642,6 +1651,18 @@ DJMDevice.prototype.boot = function boot(){
 		setTimeout(this.send0x0a.bind(this), (i++)*wait);
 	}
 	setTimeout(this.doBootup.bind(this), i*wait);
+}
+
+DJMDevice.prototype.detectMediaUnmount = function detectMediaUnmount(channel, media, packetData){
+	var device = this;
+	// First go through all the tracks in the cache and purge the ones that were associated with the media
+	for(var n in device.tracks){
+		var track = device.tracks[n];
+		if(track.track.channel==channel && track.track.media==media){
+			delete device.tracks[n];
+			continue;
+		}
+	}
 }
 
 DJMDevice.prototype.haveTrackMetadata = function haveTrackMetadata(track, info){
