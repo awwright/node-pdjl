@@ -301,6 +301,12 @@ DJMDevice.prototype.mountUSB = function mountUSB() {
 	device.hasUSB = true;
 }
 
+DJMDevice.prototype.dumpPackets = function dumpPackets(filename){
+	this.pcapStream = require('fs').createWriteStream(filename);
+	// And write the standard header first
+	this.pcapStream.write(new Buffer('a1b2c3d4000200040000000000000000000fffff00000001','hex'));
+}
+
 // Creates network servers and all the other stuff necessary
 DJMDevice.prototype.connect = function connect() {
 	var device = this;
