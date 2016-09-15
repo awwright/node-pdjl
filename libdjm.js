@@ -501,6 +501,7 @@ DJMDevice.prototype.onMsg2 = function onMsg2(msg, rinfo) {
 			stateStr: DJMDevice.playStateMap[msg[0x7b]],
 			beat: msg[0xa6],
 			totalBeats: (msg[0xa2]<<8) | (msg[0xa3]),
+			trackBeats: (msg[0xa2]<<8) | (msg[0xa3]),
 			playingSpeed: msg.readUInt32BE(0x98) / 0x100000, // the actual play rate that's coming out of the device, zero if stopped
 			settingSpeed: msg.readUInt32BE(0xc0) / 0x100000, // play rate of the track with tempo slider position, but before jog wheel adjustments
 			windSpeed: msg.readUInt32BE(0xc4) / 0x100000, // play rate of the track with current tempo settings if playing and fully up to speed
