@@ -185,6 +185,7 @@ var typeLabels = module.exports.typeLabels = {
 	"2202": 'request CD track data',
 	"2204": 'request beat grid information',
 	"2504": 'request more track data 2',
+	"2904": 'request waveform detail 300Bps',
 	"3000": 'render menu',
 	"3e03": 'inquire USB information',
 	"4000": 'response',
@@ -445,7 +446,8 @@ function parseMessage(data){
 module.exports.parseItem = parseItem;
 function parseItem(message, data){
 	var ItemStruct = mapItem[((message.a<<8)|(message.b)).toString(16)] || mapItem[message.a.toString(16)];
-	if(!ItemStruct) throw new Error('Unknown item type '+message.a.toString(16));
+	if(!ItemStruct) return message;
+	if(!ItemStruct) throw new Error('Unknown item type '+((message.a<<8)|(message.b)).toString(16));
 	var item = new ItemStruct(message);
 	if(data) assertParsed(data.slice(0,item.length), item);
 	return item;

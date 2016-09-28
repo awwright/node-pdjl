@@ -51,7 +51,7 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 			console.error('Error', err.toString());
 			return;
 		}
-		self.network.sendDBSQuery(self.channel, new DBSt.Item30({
+		self.network.sendDBSQuery(self.channel, new DBSt.Item3000({
 			clientChannel: self.network.channel,
 			affectedMenu: 1,
 			sourceMedia: 2,
@@ -67,8 +67,8 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 			console.error('Error', err.toString());
 			return;
 		}
-		self.network.haveTrackMetadata2102(self, info);
-		cb(null, trackData);
+		self.network.haveTrackMetadata(self, info);
+		cb(null, null, info);
 	}
 };
 TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
@@ -89,6 +89,50 @@ TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
 			return void cb(new Error('Unexpected response'));
 		}
 		var track = self.network.haveBeatgrid(self, info);
+		cb(null, track, info);
+	}
+};
+
+TrackReference.prototype.getWaveformSummary = function getWaveformSummary(cb){
+	var self = this;
+	self.network.sendDBSQuery(self.channel, new DBSt.Item2004({
+		clientChannel: self.network.channel, // send channel of local device
+		affectedMenu: 8 ,
+		sourceMedia: self.media,
+		sourceAnalyzed: 1,
+		resourceId: self.id,
+	}), haveFirstRequest);
+	function haveFirstRequest(err, data, info){
+		if(err){
+			console.error('Error', err.toString());
+			return void cb(err);
+		}
+		if(!(info instanceof DBSt.Item4402)){
+			return void cb(new Error('Unexpected response'));
+		}
+		var track = self.network.haveWaveformSummary(self, info);
+		cb(null, track, info);
+	}
+};
+
+TrackReference.prototype.getWaveformDetail = function getWaveformDetail(cb){
+	var self = this;
+	self.network.sendDBSQuery(self.channel, new DBSt.Item2904({
+		clientChannel: self.network.channel, // send channel of local device
+		affectedMenu: 8 ,
+		sourceMedia: self.media,
+		sourceAnalyzed: 1,
+		resourceId: self.id,
+	}), haveFirstRequest);
+	function haveFirstRequest(err, data, info){
+		if(err){
+			console.error('Error', err.toString());
+			return void cb(err);
+		}
+		if(!(info instanceof DBSt.Item4a02)){
+			return void cb(new Error('Unexpected response'));
+		}
+		var track = self.network.haveWaveformDetail(self, info);
 		cb(null, track, info);
 	}
 };
@@ -845,7 +889,7 @@ DJMDevice.prototype.onTZSPPacket = function onTZSPPacket(msg, rinfo){
 }
 
 DJMDevice.prototype.log = function log(){
-	console.log.apply(console, arguments);
+	//console.log.apply(console, arguments);
 }
 
 DJMDevice.prototype.deviceTypeNameBuf = function deviceTypeNameBuf(){
@@ -879,6 +923,20 @@ DJMDevice.prototype.checkNewTrackMetadata = function checkNewTrackMetadata(){
 			if(!device.useDbclient) return void cb();
 			if(!device.onTrackChangeBeatgrid) return void cb();
 			remote.track.getBeatgrid(function(err, meta){
+				cb();
+			});
+		},
+		function requestWaveformSummary(remote, cb){
+			if(!device.useDbclient) return void cb();
+			if(!device.onTrackChangeWaveformSummary) return void cb();
+			remote.track.getWaveformSummary(function(err, meta){
+				cb();
+			});
+		},
+		function requestWaveformDetail(remote, cb){
+			if(!device.useDbclient) return void cb();
+			if(!device.onTrackChangeWaveformDetail) return void cb();
+			remote.track.getWaveformDetail(function(err, meta){
 				cb();
 			});
 		},
@@ -985,7 +1043,13 @@ DJMDevice.prototype.getDBSSocket = function getDBSSocket(chan, callback){
 			// Handle footer elements and anything else
 			if(req.done){
 				//delete requests[rid];
-				req.done(null, req, info);
+				if(req.header){
+					req.header.items = req.items;
+					req.header.footer = info;
+					req.done(null, req, req.header);
+				}else{
+					req.done(null, req, info);
+				}
 			}else{
 				console.error('Unhandled packet!');
 			}
