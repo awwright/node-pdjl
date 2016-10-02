@@ -43,7 +43,7 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 		clientChannel: self.network.channel, // send channel of local device
 		affectedMenu: 1,
 		sourceMedia: self.media,
-		sourceAnalyzed: 1,
+		sourceAnalyzed: self.analysis,
 		resourceId: self.id,
 	}), haveFirstRequest);
 	function haveFirstRequest(err, data, info){
@@ -54,8 +54,8 @@ TrackReference.prototype.getMetadata = function requestMetadata(cb){
 		self.network.sendDBSQuery(self.channel, new DBSt.Item3000({
 			clientChannel: self.network.channel,
 			affectedMenu: 1,
-			sourceMedia: 2,
-			sourceAnalyzed: 1,
+			sourceMedia: self.media,
+			sourceAnalyzed: self.analysis,
 			offset: 0,
 			limit: info.itemCount,
 			len_a: info.itemCount,
@@ -77,7 +77,7 @@ TrackReference.prototype.getBeatgrid = function getBeatgrid(cb){
 		clientChannel: self.network.channel, // send channel of local device
 		affectedMenu: 8 ,
 		sourceMedia: self.media,
-		sourceAnalyzed: 1,
+		sourceAnalyzed: self.analysis,
 		resourceId: self.id,
 	}), haveFirstRequest);
 	function haveFirstRequest(err, data, info){
@@ -99,7 +99,7 @@ TrackReference.prototype.getWaveformSummary = function getWaveformSummary(cb){
 		clientChannel: self.network.channel, // send channel of local device
 		affectedMenu: 8 ,
 		sourceMedia: self.media,
-		sourceAnalyzed: 1,
+		sourceAnalyzed: self.analysis,
 		resourceId: self.id,
 	}), haveFirstRequest);
 	function haveFirstRequest(err, data, info){
@@ -121,7 +121,7 @@ TrackReference.prototype.getWaveformDetail = function getWaveformDetail(cb){
 		clientChannel: self.network.channel, // send channel of local device
 		affectedMenu: 8 ,
 		sourceMedia: self.media,
-		sourceAnalyzed: 1,
+		sourceAnalyzed: self.analysis,
 		resourceId: self.id,
 	}), haveFirstRequest);
 	function haveFirstRequest(err, data, info){
